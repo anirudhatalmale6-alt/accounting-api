@@ -22,6 +22,7 @@ app.use(morgan("dev"));
 
 // Public routes
 app.use("/auth", authRoutes);
+app.get("/health", (_, res) => res.json({ ok: true }));
 
 // Protected routes
 app.use("/products", requireAuth, productsRoutes);
@@ -36,8 +37,6 @@ app.use("/vat", requireAuth, vatRoutes);
 
 // serve uploaded files (dev)
 app.use("/uploads", express.static("uploads"));
-
-app.get("/health", (_, res) => res.json({ ok: true }));
 
 app.use((err, req, res, next) => {
   console.error(err);
