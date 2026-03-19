@@ -1,0 +1,506 @@
+{
+  "info": {
+    "name": "Accounting API",
+    "description": "Gas Man Accounting API - Full endpoint collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://89.167.18.163:4000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/auth/register", "host": ["{{base_url}}"], "path": ["auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyId\": 1,\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyId\": 1,\n  \"email\": \"admin@gasman.co.uk\",\n  \"password\": \"admin123\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "List Products",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/products", "host": ["{{base_url}}"], "path": ["products"] }
+          }
+        },
+        {
+          "name": "Get Product by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/products/1", "host": ["{{base_url}}"], "path": ["products", "1"] }
+          }
+        },
+        {
+          "name": "Import Products (CSV/XLSX)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/products/import", "host": ["{{base_url}}"], "path": ["products", "import"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "description": "CSV or XLSX file with columns: sku, name, description, price, cost, vatRate, stockQty, barcode, category, type" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invoices",
+      "item": [
+        {
+          "name": "Create Invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/invoices", "host": ["{{base_url}}"], "path": ["invoices"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": 1,\n  \"invoiceNumber\": \"INV-002\",\n  \"invoiceDate\": \"2026-03-19\",\n  \"dueDate\": \"2026-04-19\",\n  \"lines\": [\n    {\n      \"description\": \"Gas boiler service\",\n      \"quantity\": 1,\n      \"unitPrice\": 200,\n      \"vatRate\": 20,\n      \"productId\": null\n    },\n    {\n      \"description\": \"Replacement parts\",\n      \"quantity\": 2,\n      \"unitPrice\": 45,\n      \"vatRate\": 20,\n      \"productId\": null\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "List Invoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/invoices?status=&customerId=&dateFrom=&dateTo=&limit=100&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["invoices"],
+              "query": [
+                { "key": "status", "value": "", "description": "Filter: DRAFT, SENT, PAID, OVERDUE" },
+                { "key": "customerId", "value": "", "description": "Filter by customer ID" },
+                { "key": "dateFrom", "value": "", "description": "Filter from date (YYYY-MM-DD)" },
+                { "key": "dateTo", "value": "", "description": "Filter to date (YYYY-MM-DD)" },
+                { "key": "limit", "value": "100" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Invoice Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/invoices/1", "host": ["{{base_url}}"], "path": ["invoices", "1"] }
+          }
+        },
+        {
+          "name": "Update Invoice",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/invoices/1", "host": ["{{base_url}}"], "path": ["invoices", "1"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"INV-001\",\n  \"invoiceDate\": \"2026-03-18\",\n  \"dueDate\": \"2026-04-18\",\n  \"status\": \"SENT\",\n  \"lines\": [\n    {\n      \"description\": \"Gas boiler service (updated)\",\n      \"quantity\": 1,\n      \"unitPrice\": 180,\n      \"vatRate\": 20\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Invoice",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/invoices/1", "host": ["{{base_url}}"], "path": ["invoices", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bills",
+      "item": [
+        {
+          "name": "Create Bill",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/bills", "host": ["{{base_url}}"], "path": ["bills"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplierId\": 1,\n  \"billNumber\": \"BILL-002\",\n  \"billDate\": \"2026-03-19\",\n  \"dueDate\": \"2026-04-19\",\n  \"lines\": [\n    {\n      \"description\": \"Copper pipes\",\n      \"quantity\": 10,\n      \"unitCost\": 15,\n      \"vatRate\": 20,\n      \"productId\": null\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "List Bills",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bills?status=&supplierId=&dateFrom=&dateTo=&limit=100&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["bills"],
+              "query": [
+                { "key": "status", "value": "", "description": "Filter: UNPAID, PAID" },
+                { "key": "supplierId", "value": "", "description": "Filter by supplier ID" },
+                { "key": "dateFrom", "value": "" },
+                { "key": "dateTo", "value": "" },
+                { "key": "limit", "value": "100" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Bill Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/bills/1", "host": ["{{base_url}}"], "path": ["bills", "1"] }
+          }
+        },
+        {
+          "name": "Update Bill",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/bills/1", "host": ["{{base_url}}"], "path": ["bills", "1"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billNumber\": \"BILL-001\",\n  \"billDate\": \"2026-03-18\",\n  \"dueDate\": \"2026-04-18\",\n  \"status\": \"UNPAID\",\n  \"lines\": [\n    {\n      \"description\": \"Parts (updated)\",\n      \"quantity\": 3,\n      \"unitCost\": 25,\n      \"vatRate\": 20\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Bill",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/bills/1", "host": ["{{base_url}}"], "path": ["bills", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Record Customer Receipt",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/payments/customer-receipt", "host": ["{{base_url}}"], "path": ["payments", "customer-receipt"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceId\": 1,\n  \"amount\": 180,\n  \"paymentDate\": \"2026-03-19\",\n  \"memo\": \"Payment received via bank transfer\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Record Supplier Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/payments/supplier-payment", "host": ["{{base_url}}"], "path": ["payments", "supplier-payment"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billId\": 1,\n  \"amount\": 120,\n  \"paymentDate\": \"2026-03-19\",\n  \"memo\": \"Paid supplier by cheque\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "item": [
+        {
+          "name": "List Stock Movements",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inventory/movements?productId=&dateFrom=&dateTo=&limit=200&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "movements"],
+              "query": [
+                { "key": "productId", "value": "", "description": "Filter by product ID" },
+                { "key": "dateFrom", "value": "" },
+                { "key": "dateTo", "value": "" },
+                { "key": "limit", "value": "200" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Product Stock",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/inventory/products/1", "host": ["{{base_url}}"], "path": ["inventory", "products", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attachments",
+      "item": [
+        {
+          "name": "Upload Invoice Attachment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/invoice/1/attachments", "host": ["{{base_url}}"], "path": ["invoice", "1", "attachments"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "description": "File to attach (max 25MB)" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Invoice Attachments",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/invoice/1/attachments", "host": ["{{base_url}}"], "path": ["invoice", "1", "attachments"] }
+          }
+        },
+        {
+          "name": "Upload Bill Attachment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/bill/1/attachments", "host": ["{{base_url}}"], "path": ["bill", "1", "attachments"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Bill Attachments",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/bill/1/attachments", "host": ["{{base_url}}"], "path": ["bill", "1", "attachments"] }
+          }
+        },
+        {
+          "name": "Delete Attachment",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/attachments/1", "host": ["{{base_url}}"], "path": ["attachments", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Profit & Loss",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/reports/pl?dateFrom=2026-01-01&dateTo=2026-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["reports", "pl"],
+              "query": [
+                { "key": "dateFrom", "value": "2026-01-01" },
+                { "key": "dateTo", "value": "2026-12-31" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Balance Sheet",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/reports/bs", "host": ["{{base_url}}"], "path": ["reports", "bs"] }
+          }
+        },
+        {
+          "name": "Trial Balance",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/reports/tb", "host": ["{{base_url}}"], "path": ["reports", "tb"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chart of Accounts",
+      "item": [
+        {
+          "name": "List Accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/accounts", "host": ["{{base_url}}"], "path": ["accounts"] }
+          }
+        },
+        {
+          "name": "Create Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/accounts", "host": ["{{base_url}}"], "path": ["accounts"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"1300\",\n  \"name\": \"Petty Cash\",\n  \"type\": \"ASSET\",\n  \"subType\": \"CASH\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "VAT",
+      "item": [
+        {
+          "name": "VAT Return",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vat/return?dateFrom=2026-01-01&dateTo=2026-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["vat", "return"],
+              "query": [
+                { "key": "dateFrom", "value": "2026-01-01" },
+                { "key": "dateTo", "value": "2026-12-31" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
