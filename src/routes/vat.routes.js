@@ -72,4 +72,55 @@ router.get("/return", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+router.get("/summary", async (req, res, next) => {
+  try {
+    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const dateFrom = req.query.dateFrom || "1900-01-01";
+    const dateTo = req.query.dateTo || "2999-12-31";
+
+    // VAT on sales (output VAT)
+    const salesVat = await db.query(
+      `SELECT COALESCE(SUM(vat_total),0) AS vat_collected,
+              COALESCE(SUM(net_total),0) AS sales_ex_vat,
+              COALESCE(SUM(total),0) AS sales_inc_vat,
+              COUNT(*) AS invoice_count
+       FROM invoices WHERE company_id=$1 AND invoice_date BETWEEN $2 AND $3`,
+      [companyId, dateFrom, dateTo]
+    );
+
+    // VAT on purchases (input VAT) - calculate from bill lines
+    const purchaseVat = await db.query(
+      `SELECT COALESCE(SUM(bl.line_total * bl.vat_rate / 100),0) AS vat_paid,
+              COALESCE(SUM(bl.line_total),0) AS purchases_ex_vat,
+              COUNT(DISTINCT b.id) AS bill_count
+       FROM bills b
+       JOIN bill_lines bl ON bl.bill_id=b.id
+       WHERE b.company_id=$1 AND b.bill_date BETWEEN $2 AND $3`,
+      [companyId, dateFrom, dateTo]
+    );
+
+    const vatCollected = Number(salesVat.rows[0].vat_collected);
+    const vatPaid = Number(purchaseVat.rows[0].vat_paid);
+    const vatOwed = vatCollected - vatPaid;
+
+    res.json({
+      period: { dateFrom, dateTo },
+      vatCollected,
+      vatPaid,
+      vatOwed,
+      sales: {
+        netAmount: Number(salesVat.rows[0].sales_ex_vat),
+        vatAmount: vatCollected,
+        grossAmount: Number(salesVat.rows[0].sales_inc_vat),
+        invoiceCount: Number(salesVat.rows[0].invoice_count),
+      },
+      purchases: {
+        netAmount: Number(purchaseVat.rows[0].purchases_ex_vat),
+        vatAmount: vatPaid,
+        billCount: Number(purchaseVat.rows[0].bill_count),
+      },
+    });
+  } catch (e) { next(e); }
+});
+
 module.exports = router;
