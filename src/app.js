@@ -13,6 +13,9 @@ const reportsRoutes = require("./routes/reports.routes");
 const paymentsRoutes = require("./routes/payments.routes");
 const accountsRoutes = require("./routes/accounts.routes");
 const vatRoutes = require("./routes/vat.routes");
+const dashboardRoutes = require("./routes/dashboard.routes");
+const employeesRoutes = require("./routes/employees.routes");
+const emailRoutes = require("./routes/email.routes");
 const { requireAuth } = require("./middleware/auth");
 
 const app = express();
@@ -34,6 +37,9 @@ app.use("/reports", requireAuth, reportsRoutes);
 app.use("/payments", requireAuth, paymentsRoutes);
 app.use("/accounts", requireAuth, accountsRoutes);
 app.use("/vat", requireAuth, vatRoutes);
+app.use("/dashboard", requireAuth, dashboardRoutes);
+app.use("/employees", requireAuth, employeesRoutes);
+app.use("/email", requireAuth, emailRoutes);
 
 // serve uploaded files (dev)
 app.use("/uploads", express.static("uploads"));
