@@ -103,7 +103,7 @@ router.get("/summary", async (req, res, next) => {
          COUNT(*) AS total_products,
          COALESCE(SUM(stock_qty),0) AS total_stock_qty,
          COALESCE(SUM(stock_qty * COALESCE(cost,0)),0) AS total_stock_value,
-         COUNT(CASE WHEN track_inventory=true AND stock_qty <= COALESCE(reorder_level,0) THEN 1 END) AS low_stock_count
+         COUNT(CASE WHEN track_inventory=true AND stock_qty <= 0 THEN 1 END) AS low_stock_count
        FROM products WHERE company_id=$1`,
       [companyId]
     );
