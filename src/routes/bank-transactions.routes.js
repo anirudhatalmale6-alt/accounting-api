@@ -18,7 +18,7 @@ router.post("/", async (req, res, next) => {
       return res.status(400).json({ error: "type must be DEPOSIT, WITHDRAWAL, TRANSFER, REFUND, FEE, or INTEREST" });
     }
 
-    const client = await db.connect();
+    const client = await db.getClient();
     try {
       await client.query("BEGIN");
 
@@ -139,7 +139,7 @@ router.delete("/:id", async (req, res, next) => {
     if (existing.rowCount === 0) return res.status(404).json({ error: "Transaction not found" });
 
     const tx = existing.rows[0];
-    const client = await db.connect();
+    const client = await db.getClient();
     try {
       await client.query("BEGIN");
 

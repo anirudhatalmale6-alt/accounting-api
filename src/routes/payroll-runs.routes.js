@@ -13,7 +13,7 @@ router.post("/", async (req, res, next) => {
       return res.status(400).json({ error: "runDate, periodStart, and periodEnd are required" });
     }
 
-    const client = await db.connect();
+    const client = await db.getClient();
     try {
       await client.query("BEGIN");
 
@@ -150,7 +150,7 @@ router.put("/:id", async (req, res, next) => {
       return res.status(400).json({ error: "Can only edit DRAFT payroll runs" });
     }
 
-    const client = await db.connect();
+    const client = await db.getClient();
     try {
       await client.query("BEGIN");
 
