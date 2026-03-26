@@ -21,6 +21,7 @@ const suppliersRoutes = require("./routes/suppliers.routes");
 const bankAccountsRoutes = require("./routes/bank-accounts.routes");
 const payrollRunsRoutes = require("./routes/payroll-runs.routes");
 const bankTransactionsRoutes = require("./routes/bank-transactions.routes");
+const payslipsRoutes = require("./routes/payslips.routes");
 const { requireAuth } = require("./middleware/auth");
 
 const app = express();
@@ -50,6 +51,7 @@ app.use("/suppliers", requireAuth, suppliersRoutes);
 app.use("/bank-accounts", requireAuth, bankAccountsRoutes);
 app.use("/payroll-runs", requireAuth, payrollRunsRoutes);
 app.use("/bank-transactions", requireAuth, bankTransactionsRoutes);
+app.use("/payslips", requireAuth, payslipsRoutes);
 
 // serve uploaded files (dev)
 app.use("/uploads", express.static("uploads"));
