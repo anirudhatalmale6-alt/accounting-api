@@ -248,8 +248,39 @@ async function deleteBill({ companyId, billId }) {
       throw err;
     }
 
+    // Check for linked payments
+    const paymentsCheck = await client.query(
+      `SELECT id FROM payments WHERE bill_id=$1`, [billId]
+    );
+    const allocCheck = await client.query(
+      `SELECT id FROM payment_allocations WHERE bill_id=$1`, [billId]
+    );
+
+    if (paymentsCheck.rowCount > 0 || allocCheck.rowCount > 0) {
+      if (existing.bill.status === "PAID") {
+        const err = new Error("Cannot delete a PAID bill that has payments recorded against it. Void it instead by updating status to VOID.");
+        err.status = 400;
+        throw err;
+      }
+      await client.query(`DELETE FROM payment_allocations WHERE bill_id=$1`, [billId]);
+      await client.query(`DELETE FROM payments WHERE bill_id=$1`, [billId]);
+    }
+
+    // Delete linked journal entries
+    if (existing.bill.journal_entry_id) {
+      await client.query(`DELETE FROM journal_entries WHERE id=$1`, [existing.bill.journal_entry_id]);
+    }
+
+    // Delete linked attachments
+    await client.query(
+      `DELETE FROM attachments WHERE parent_type='bill' AND parent_id=$1 AND company_id=$2`,
+      [billId, companyId]
+    );
+
+    // Reverse stock movements
     await applyBillStockMovement(client, companyId, billId,
       existing.bill.bill_number, existing.lines, -1);
+
     await client.query(`DELETE FROM bills WHERE company_id=$1 AND id=$2`,
       [companyId, billId]);
 

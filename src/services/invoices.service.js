@@ -268,6 +268,37 @@ async function deleteInvoice({ companyId, invoiceId }) {
       throw err;
     }
 
+    // Check for linked payments
+    const paymentsCheck = await client.query(
+      `SELECT id FROM payments WHERE invoice_id=$1`, [invoiceId]
+    );
+    const allocCheck = await client.query(
+      `SELECT id FROM payment_allocations WHERE invoice_id=$1`, [invoiceId]
+    );
+
+    if (paymentsCheck.rowCount > 0 || allocCheck.rowCount > 0) {
+      if (existing.invoice.status === "PAID") {
+        const err = new Error("Cannot delete a PAID invoice that has payments recorded against it. Void it instead by updating status to VOID.");
+        err.status = 400;
+        throw err;
+      }
+      // For non-paid invoices with partial payments, delete the payments first
+      await client.query(`DELETE FROM payment_allocations WHERE invoice_id=$1`, [invoiceId]);
+      await client.query(`DELETE FROM payments WHERE invoice_id=$1`, [invoiceId]);
+    }
+
+    // Delete linked journal entries
+    if (existing.invoice.journal_entry_id) {
+      await client.query(`DELETE FROM journal_entries WHERE id=$1`, [existing.invoice.journal_entry_id]);
+    }
+
+    // Delete linked attachments
+    await client.query(
+      `DELETE FROM attachments WHERE parent_type='invoice' AND parent_id=$1 AND company_id=$2`,
+      [invoiceId, companyId]
+    );
+
+    // Reverse stock movements
     await applyInvoiceStockMovement(client, companyId, invoiceId,
       existing.invoice.invoice_number, existing.lines, +1);
 
