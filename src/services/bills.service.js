@@ -2,10 +2,45 @@ const db = require("../db");
 const { getAccountIdByCode, createJournalEntry } = require("./journals.service");
 
 async function getBillWithLines(client, companyId, billId) {
-  const bRes = await client.query(`SELECT * FROM bills WHERE company_id=$1 AND id=$2`, [companyId, billId]);
+  const bRes = await client.query(
+    `SELECT b.*, s.name AS supplier_name, s.email AS supplier_email,
+            s.phone AS supplier_phone, s.address AS supplier_address,
+            s.vat_number AS supplier_vat_number, s.contact_person AS supplier_contact_person
+     FROM bills b
+     LEFT JOIN suppliers s ON s.id = b.supplier_id
+     WHERE b.company_id=$1 AND b.id=$2`,
+    [companyId, billId]
+  );
   if (bRes.rowCount === 0) return null;
-  const linesRes = await client.query(`SELECT * FROM bill_lines WHERE bill_id=$1 ORDER BY id`, [billId]);
-  return { bill: bRes.rows[0], lines: linesRes.rows };
+
+  const linesRes = await client.query(
+    `SELECT bl.*, p.name AS product_name, p.sku AS product_sku
+     FROM bill_lines bl
+     LEFT JOIN products p ON p.id = bl.product_id
+     WHERE bl.bill_id=$1 ORDER BY bl.id`,
+    [billId]
+  );
+
+  const row = bRes.rows[0];
+  const bill = {
+    id: row.id, company_id: row.company_id, supplier_id: row.supplier_id,
+    bill_number: row.bill_number, bill_date: row.bill_date,
+    due_date: row.due_date, status: row.status, total: row.total,
+    balance: row.balance, journal_entry_id: row.journal_entry_id,
+    created_at: row.created_at, updated_at: row.updated_at,
+  };
+
+  const supplier = {
+    id: row.supplier_id,
+    name: row.supplier_name,
+    email: row.supplier_email,
+    phone: row.supplier_phone,
+    address: row.supplier_address,
+    vatNumber: row.supplier_vat_number,
+    contactPerson: row.supplier_contact_person,
+  };
+
+  return { bill, supplier, lines: linesRes.rows };
 }
 
 function computeBillTotals(lines) {

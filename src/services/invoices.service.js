@@ -3,17 +3,45 @@ const { getAccountIdByCode, createJournalEntry } = require("./journals.service")
 
 async function getInvoiceWithLines(client, companyId, invoiceId) {
   const invRes = await client.query(
-    `SELECT * FROM invoices WHERE company_id=$1 AND id=$2`,
+    `SELECT i.*, c.name AS customer_name, c.email AS customer_email,
+            c.phone AS customer_phone, c.address AS customer_address,
+            c.vat_number AS customer_vat_number, c.contact_person AS customer_contact_person
+     FROM invoices i
+     LEFT JOIN customers c ON c.id = i.customer_id
+     WHERE i.company_id=$1 AND i.id=$2`,
     [companyId, invoiceId]
   );
   if (invRes.rowCount === 0) return null;
 
   const linesRes = await client.query(
-    `SELECT * FROM invoice_lines WHERE invoice_id=$1 ORDER BY id`,
+    `SELECT il.*, p.name AS product_name, p.sku AS product_sku
+     FROM invoice_lines il
+     LEFT JOIN products p ON p.id = il.product_id
+     WHERE il.invoice_id=$1 ORDER BY il.id`,
     [invoiceId]
   );
 
-  return { invoice: invRes.rows[0], lines: linesRes.rows };
+  const row = invRes.rows[0];
+  const invoice = {
+    id: row.id, company_id: row.company_id, customer_id: row.customer_id,
+    invoice_number: row.invoice_number, invoice_date: row.invoice_date,
+    due_date: row.due_date, status: row.status, net_total: row.net_total,
+    vat_total: row.vat_total, total: row.total, balance: row.balance,
+    journal_entry_id: row.journal_entry_id,
+    created_at: row.created_at, updated_at: row.updated_at,
+  };
+
+  const customer = {
+    id: row.customer_id,
+    name: row.customer_name,
+    email: row.customer_email,
+    phone: row.customer_phone,
+    address: row.customer_address,
+    vatNumber: row.customer_vat_number,
+    contactPerson: row.customer_contact_person,
+  };
+
+  return { invoice, customer, lines: linesRes.rows };
 }
 
 function computeInvoiceTotals(lines) {
