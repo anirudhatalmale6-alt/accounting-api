@@ -114,6 +114,94 @@ router.put("/:id", async (req, res, next) => {
   }
 });
 
+// Get stock movements for a product
+router.get("/:id/stock-movements", async (req, res, next) => {
+  try {
+    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const productId = Number(req.params.id);
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const limit = req.query.limit ? Number(req.query.limit) : 200;
+    const offset = req.query.offset ? Number(req.query.offset) : 0;
+
+    // Verify product exists
+    const product = await db.query(
+      `SELECT id, name, sku, stock_qty FROM products WHERE company_id=$1 AND id=$2`,
+      [companyId, productId]
+    );
+    if (product.rowCount === 0) return res.status(404).json({ error: "Product not found" });
+
+    let q = `SELECT * FROM inventory_movements WHERE company_id=$1 AND product_id=$2`;
+    const params = [companyId, productId];
+    let idx = 3;
+
+    if (dateFrom) {
+      q += ` AND created_at >= $${idx}`;
+      params.push(dateFrom);
+      idx++;
+    }
+    if (dateTo) {
+      q += ` AND created_at <= $${idx}`;
+      params.push(dateTo);
+      idx++;
+    }
+
+    q += ` ORDER BY created_at DESC, id DESC LIMIT $${idx} OFFSET $${idx + 1}`;
+    params.push(limit, offset);
+
+    const movements = await db.query(q, params);
+
+    res.json({
+      product: product.rows[0],
+      movements: movements.rows,
+    });
+  } catch (e) { next(e); }
+});
+
+// Add manual stock adjustment for a product
+router.post("/:id/stock-movements", async (req, res, next) => {
+  try {
+    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const productId = Number(req.params.id);
+    const { quantityChange, reason, note } = req.body;
+
+    if (quantityChange == null || quantityChange === 0) {
+      return res.status(400).json({ error: "quantityChange is required and cannot be zero" });
+    }
+
+    const product = await db.query(
+      `SELECT id, name, stock_qty FROM products WHERE company_id=$1 AND id=$2`,
+      [companyId, productId]
+    );
+    if (product.rowCount === 0) return res.status(404).json({ error: "Product not found" });
+
+    const currentQty = product.rows[0].stock_qty;
+    const newQty = currentQty + Number(quantityChange);
+
+    if (newQty < 0) {
+      return res.status(400).json({ error: `Insufficient stock. Current: ${currentQty}, adjustment: ${quantityChange}` });
+    }
+
+    await db.query(
+      `UPDATE products SET stock_qty=$1, updated_at=NOW() WHERE id=$2`,
+      [newQty, productId]
+    );
+
+    const movement = await db.query(
+      `INSERT INTO inventory_movements (company_id, product_id, movement_type, qty_change, reference_type, note)
+       VALUES ($1, $2, $3, $4, 'MANUAL', $5)
+       RETURNING *`,
+      [companyId, productId, reason || 'ADJUSTMENT', Number(quantityChange), note || null]
+    );
+
+    res.json({
+      movement: movement.rows[0],
+      previousQty: currentQty,
+      newQty,
+    });
+  } catch (e) { next(e); }
+});
+
 // Delete product
 router.delete("/:id", async (req, res, next) => {
   try {
