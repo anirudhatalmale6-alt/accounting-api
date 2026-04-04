@@ -13,9 +13,9 @@ function generateOtp() {
 
 router.post("/register", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || 1);
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
+    const companyName = req.body.companyName || req.body.company_name || null;
 
     if (!email || password.length < 6) {
       return res.status(400).json({ error: "Email and password (min 6 chars) required" });
@@ -23,21 +23,66 @@ router.post("/register", async (req, res, next) => {
 
     const hash = await bcrypt.hash(password, 10);
 
-    const result = await db.query(
-      `INSERT INTO users (company_id, email, password_hash)
-       VALUES ($1,$2,$3)
-       RETURNING id, company_id, email, role`,
-      [companyId, email, hash]
-    );
+    const client = await db.getClient();
+    try {
+      await client.query("BEGIN");
 
-    const user = result.rows[0];
-    const token = jwt.sign(
-      { userId: user.id, companyId: user.company_id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || "dev_secret_change_me",
-      { expiresIn: "7d" }
-    );
+      // If companyId is provided, join that company; otherwise create a new one
+      let companyId;
+      if (req.body.companyId) {
+        companyId = Number(req.body.companyId);
+      } else {
+        // Create a new company for this user
+        const companyResult = await client.query(
+          `INSERT INTO companies (name) VALUES ($1) RETURNING id`,
+          [companyName || `${email.split("@")[0]}'s Company`]
+        );
+        companyId = companyResult.rows[0].id;
 
-    res.json({ user, token });
+        // Seed default chart of accounts for the new company
+        const defaultAccounts = [
+          ['1000', 'Bank - Main', 'ASSET', 'BANK'],
+          ['1100', 'Accounts Receivable', 'ASSET', 'RECEIVABLE'],
+          ['1200', 'Inventory', 'ASSET', 'INVENTORY'],
+          ['2000', 'Accounts Payable', 'LIABILITY', 'PAYABLE'],
+          ['2100', 'VAT Control', 'LIABILITY', 'VAT'],
+          ['3000', 'Owner Equity', 'EQUITY', null],
+          ['4000', 'Sales', 'INCOME', null],
+          ['5000', 'Cost of Sales', 'EXPENSE', 'COGS'],
+          ['6000', 'Operating Expenses', 'EXPENSE', null],
+          ['7000', 'Payroll Expenses', 'EXPENSE', 'PAYROLL'],
+        ];
+        for (const [code, name, type, subType] of defaultAccounts) {
+          await client.query(
+            `INSERT INTO chart_of_accounts (company_id, code, name, type, sub_type) VALUES ($1,$2,$3,$4,$5)`,
+            [companyId, code, name, type, subType]
+          );
+        }
+      }
+
+      const result = await client.query(
+        `INSERT INTO users (company_id, email, password_hash)
+         VALUES ($1,$2,$3)
+         RETURNING id, company_id, email, role`,
+        [companyId, email, hash]
+      );
+
+      await client.query("COMMIT");
+
+      const user = result.rows[0];
+      const token = jwt.sign(
+        { userId: user.id, companyId: user.company_id, email: user.email, role: user.role },
+        process.env.JWT_SECRET || "dev_secret_change_me",
+        { expiresIn: "7d" }
+      );
+
+      res.json({ user, token });
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
   } catch (e) {
     if (String(e.message).includes("users_company_id_email")) {
       return res.status(409).json({ error: "User already exists" });
