@@ -17,11 +17,12 @@ router.get("/pl", async (req, res, next) => {
       [companyId, dateFrom, dateTo]
     );
 
-    // Expense: sum of all bill totals in the period
+    // Expense: sum of bill line totals (net, ex-VAT) in the period
     const expenseResult = await db.query(
-      `SELECT COALESCE(SUM(total),0) AS total
-       FROM bills
-       WHERE company_id=$1 AND bill_date BETWEEN $2 AND $3`,
+      `SELECT COALESCE(SUM(bl.line_total),0) AS total
+       FROM bills b
+       JOIN bill_lines bl ON bl.bill_id = b.id
+       WHERE b.company_id=$1 AND b.bill_date BETWEEN $2 AND $3`,
       [companyId, dateFrom, dateTo]
     );
 
@@ -35,10 +36,11 @@ router.get("/pl", async (req, res, next) => {
       [companyId, dateFrom, dateTo]
     );
 
-    // Expense breakdown by supplier
+    // Expense breakdown by supplier (net, ex-VAT)
     const expenseBySupplier = await db.query(
-      `SELECT s.name AS supplier_name, COALESCE(SUM(b.total),0) AS total
+      `SELECT s.name AS supplier_name, COALESCE(SUM(bl.line_total),0) AS total
        FROM bills b
+       JOIN bill_lines bl ON bl.bill_id = b.id
        LEFT JOIN suppliers s ON s.id=b.supplier_id
        WHERE b.company_id=$1 AND b.bill_date BETWEEN $2 AND $3
        GROUP BY s.name ORDER BY total DESC`,

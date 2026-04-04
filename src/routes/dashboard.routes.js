@@ -43,8 +43,10 @@ router.get("/summary", async (req, res, next) => {
     );
 
     const monthPurchases = await db.query(
-      `SELECT COALESCE(SUM(total),0) AS purchases_total
-       FROM bills WHERE company_id=$1 AND bill_date >= $2`,
+      `SELECT COALESCE(SUM(bl.line_total),0) AS purchases_total
+       FROM bills b
+       JOIN bill_lines bl ON bl.bill_id = b.id
+       WHERE b.company_id=$1 AND b.bill_date >= $2`,
       [companyId, monthStart]
     );
 
