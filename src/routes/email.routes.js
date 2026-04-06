@@ -165,18 +165,22 @@ router.post("/invoices/:invoiceId/send", async (req, res, next) => {
     // Try to send email via nodemailer if SMTP is configured
     if (process.env.SMTP_HOST) {
       const nodemailer = require("nodemailer");
-      const transporter = nodemailer.createTransport({
+      const smtpConfig = {
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT || 587),
         secure: process.env.SMTP_SECURE === "true",
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
+      };
+      if (process.env.SMTP_USER) {
+        smtpConfig.auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
+      }
+      if (process.env.SMTP_HOST === "localhost" || process.env.SMTP_HOST === "127.0.0.1") {
+        smtpConfig.tls = { rejectUnauthorized: false };
+      }
+      const transporter = nodemailer.createTransport(smtpConfig);
 
       try {
         await transporter.sendMail({
+          from: process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@gasman-app.com",
           to: recipient,
           subject,
           text: body,
@@ -238,18 +242,22 @@ router.post("/bills/:billId/send", async (req, res, next) => {
 
     if (process.env.SMTP_HOST) {
       const nodemailer = require("nodemailer");
-      const transporter = nodemailer.createTransport({
+      const smtpConfig = {
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT || 587),
         secure: process.env.SMTP_SECURE === "true",
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
+      };
+      if (process.env.SMTP_USER) {
+        smtpConfig.auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
+      }
+      if (process.env.SMTP_HOST === "localhost" || process.env.SMTP_HOST === "127.0.0.1") {
+        smtpConfig.tls = { rejectUnauthorized: false };
+      }
+      const transporter = nodemailer.createTransport(smtpConfig);
 
       try {
         await transporter.sendMail({
+          from: process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@gasman-app.com",
           to: recipient,
           subject,
           text: body,

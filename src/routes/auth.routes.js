@@ -164,17 +164,25 @@ router.post("/forgot-password", async (req, res, next) => {
 
     // Try to send OTP via email if SMTP is configured
     let emailSent = false;
-    if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+    if (process.env.SMTP_HOST) {
       try {
-        const transporter = nodemailer.createTransport({
+        const smtpConfig = {
           host: process.env.SMTP_HOST,
           port: Number(process.env.SMTP_PORT || 587),
           secure: process.env.SMTP_SECURE === "true",
-          auth: {
+        };
+        // Only add auth if SMTP_USER is set (not needed for local Postfix)
+        if (process.env.SMTP_USER) {
+          smtpConfig.auth = {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
-          },
-        });
+          };
+        }
+        // For local SMTP, disable TLS verification
+        if (process.env.SMTP_HOST === "localhost" || process.env.SMTP_HOST === "127.0.0.1") {
+          smtpConfig.tls = { rejectUnauthorized: false };
+        }
+        const transporter = nodemailer.createTransport(smtpConfig);
 
         await transporter.sendMail({
           from: process.env.SMTP_FROM || process.env.SMTP_USER,
