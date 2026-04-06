@@ -6,11 +6,40 @@ const router = express.Router();
 router.get("/", async (req, res, next) => {
   try {
     const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const asAt = req.query.asAt || new Date().toISOString().slice(0, 10);
+
     const out = await db.query(
-      `SELECT * FROM chart_of_accounts WHERE company_id=$1 ORDER BY code`,
-      [companyId]
+      `SELECT a.*,
+              COALESCE(SUM(l.debit),0) AS total_debit,
+              COALESCE(SUM(l.credit),0) AS total_credit,
+              CASE
+                WHEN a.type IN ('ASSET','EXPENSE') THEN COALESCE(SUM(l.debit),0) - COALESCE(SUM(l.credit),0)
+                ELSE COALESCE(SUM(l.credit),0) - COALESCE(SUM(l.debit),0)
+              END AS balance
+       FROM chart_of_accounts a
+       LEFT JOIN journal_entry_lines l ON l.account_id = a.id
+       LEFT JOIN journal_entries j ON j.id = l.journal_entry_id
+         AND j.company_id = $1 AND j.entry_date <= $2
+       WHERE a.company_id = $1
+       GROUP BY a.id, a.code, a.name, a.type, a.sub_type, a.company_id, a.created_at
+       ORDER BY a.code`,
+      [companyId, asAt]
     );
-    res.json({ accounts: out.rows });
+
+    // Calculate totals
+    let totalDebit = 0, totalCredit = 0;
+    out.rows.forEach(r => {
+      r.total_debit = Number(r.total_debit);
+      r.total_credit = Number(r.total_credit);
+      r.balance = Number(r.balance);
+      totalDebit += r.total_debit;
+      totalCredit += r.total_credit;
+    });
+
+    res.json({
+      accounts: out.rows,
+      totals: { debit: totalDebit, credit: totalCredit },
+    });
   } catch (e) { next(e); }
 });
 
