@@ -67,13 +67,13 @@ router.get("/bs", async (req, res, next) => {
     const companyId = Number(req.query.companyId || req.user.companyId || 1);
     const asAt = req.query.asAt || new Date().toISOString().slice(0, 10);
 
-    // Accounts Receivable
+    // Accounts Receivable (unpaid invoice balances up to asAt date)
     const arResult = await db.query(
       `SELECT COALESCE(SUM(balance),0) AS total FROM invoices WHERE company_id=$1 AND status NOT IN ('PAID','VOID') AND invoice_date <= $2`,
       [companyId, asAt]
     );
 
-    // Accounts Payable
+    // Accounts Payable (unpaid bill balances up to asAt date)
     const apResult = await db.query(
       `SELECT COALESCE(SUM(balance),0) AS total FROM bills WHERE company_id=$1 AND status NOT IN ('PAID','VOID') AND bill_date <= $2`,
       [companyId, asAt]
@@ -95,28 +95,83 @@ router.get("/bs", async (req, res, next) => {
       [companyId]
     );
 
+    // VAT Payable (liability)
+    let vatPayable = 0;
+    try {
+      const vatAc = await db.query(
+        `SELECT id FROM chart_of_accounts WHERE company_id=$1 AND code='2100'`,
+        [companyId]
+      );
+      if (vatAc.rowCount > 0) {
+        const vatLines = await db.query(
+          `SELECT COALESCE(SUM(credit - debit),0) AS vat_payable
+           FROM journal_entries j
+           JOIN journal_entry_lines l ON l.journal_entry_id=j.id
+           WHERE j.company_id=$1 AND l.account_id=$2 AND j.entry_date <= $3`,
+          [companyId, vatAc.rows[0].id, asAt]
+        );
+        vatPayable = Number(vatLines.rows[0].vat_payable);
+      }
+    } catch (e) { /* ignore */ }
+
+    // Retained Earnings (cumulative P&L up to asAt)
+    const incomeResult = await db.query(
+      `SELECT COALESCE(SUM(net_total),0) AS total FROM invoices WHERE company_id=$1 AND invoice_date <= $2`,
+      [companyId, asAt]
+    );
+    const expenseResult = await db.query(
+      `SELECT COALESCE(SUM(bl.line_total),0) AS total
+       FROM bills b JOIN bill_lines bl ON bl.bill_id = b.id
+       WHERE b.company_id=$1 AND b.bill_date <= $2`,
+      [companyId, asAt]
+    );
+    const retainedEarnings = Number(incomeResult.rows[0].total) - Number(expenseResult.rows[0].total);
+
     const accountsReceivable = Number(arResult.rows[0].total);
     const accountsPayable = Number(apResult.rows[0].total);
     const inventoryValue = Number(invResult.rows[0].total);
-    const totalAssets = bankBalance + accountsReceivable + inventoryValue;
-    const totalLiabilities = accountsPayable;
-    const equity = totalAssets - totalLiabilities;
+
+    // Assets
+    const totalCurrentAssets = bankBalance + accountsReceivable;
+    const totalAssets = totalCurrentAssets + inventoryValue;
+
+    // Liabilities
+    const totalCurrentLiabilities = accountsPayable + (vatPayable > 0 ? vatPayable : 0);
+    const totalLiabilities = totalCurrentLiabilities;
+
+    // Equity = Assets - Liabilities (should equal retained earnings)
+    const totalEquity = retainedEarnings;
 
     res.json({
       asAt,
       assets: {
-        cash: bankBalance,
-        accountsReceivable,
-        inventory: inventoryValue,
+        currentAssets: {
+          cash: bankBalance,
+          accountsReceivable,
+          totalCurrentAssets,
+        },
+        nonCurrentAssets: {
+          inventory: inventoryValue,
+        },
         totalAssets,
       },
       liabilities: {
-        accountsPayable,
+        currentLiabilities: {
+          accountsPayable,
+          vatPayable: vatPayable > 0 ? vatPayable : 0,
+          totalCurrentLiabilities,
+        },
         totalLiabilities,
       },
       equity: {
-        retainedEarnings: equity,
-        totalEquity: equity,
+        retainedEarnings,
+        totalEquity,
+      },
+      // Verification: Assets should equal Liabilities + Equity
+      balanceCheck: {
+        totalAssets,
+        totalLiabilitiesAndEquity: totalLiabilities + totalEquity,
+        isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01,
       },
     });
   } catch (e) { next(e); }

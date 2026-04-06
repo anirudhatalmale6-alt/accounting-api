@@ -5,6 +5,49 @@ const {
 
 const router = express.Router();
 
+// GET /invoices/next-number - get next auto-increment invoice number
+router.get("/next-number", async (req, res, next) => {
+  try {
+    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const prefix = req.query.prefix || "INV-";
+
+    // Get the latest invoice number for this company
+    const result = await db.query(
+      `SELECT invoice_number FROM invoices WHERE company_id=$1 ORDER BY id DESC LIMIT 1`,
+      [companyId]
+    );
+
+    let nextNumber;
+    if (result.rowCount === 0) {
+      nextNumber = `${prefix}0001`;
+    } else {
+      const lastNumber = result.rows[0].invoice_number;
+      // Try to extract numeric part from the last invoice number
+      const match = lastNumber.match(/(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10) + 1;
+        const padded = String(num).padStart(match[1].length, "0");
+        const prefixPart = lastNumber.slice(0, lastNumber.length - match[1].length);
+        nextNumber = prefixPart + padded;
+      } else {
+        nextNumber = `${prefix}0001`;
+      }
+    }
+
+    // Check if this number already exists (handle edge cases)
+    const exists = await db.query(
+      `SELECT id FROM invoices WHERE company_id=$1 AND invoice_number=$2`,
+      [companyId, nextNumber]
+    );
+    if (exists.rowCount > 0) {
+      // Append timestamp to make unique
+      nextNumber = `${prefix}${Date.now()}`;
+    }
+
+    res.json({ nextInvoiceNumber: nextNumber });
+  } catch (e) { next(e); }
+});
+
 router.post("/", async (req, res, next) => {
   try {
     const companyId = Number(req.body.companyId || req.user.companyId || 1);
