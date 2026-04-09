@@ -23,9 +23,7 @@ const upload = multer({
 // Models to try in order (fallback chain)
 const MODELS = [
   "gemini-2.5-flash",
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-001",
-  "gemini-2.0-flash-lite",
+  "gemini-2.5-pro",
 ];
 
 const PROMPT = `You are an expert invoice and receipt parser. Analyze this image of an invoice or receipt and extract the following information in JSON format. Be very precise with the numbers and dates.
@@ -135,21 +133,24 @@ async function callGemini(base64Image, mimeType) {
   const errors = [];
 
   for (const model of MODELS) {
-    // Try each model up to 2 times
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // Try each model up to 4 times with increasing delay
+    const delays = [2000, 4000, 6000];
+    for (let attempt = 0; attempt < 4; attempt++) {
       try {
         const result = await callGeminiModel(base64Image, mimeType, model, apiKey);
         return result;
       } catch (e) {
         errors.push(e.message);
         console.warn(`OCR attempt ${attempt + 1} with ${model} failed: ${e.message}`);
-        // Wait briefly before retry
-        if (attempt === 0) await new Promise(r => setTimeout(r, 1000));
+        // Check if it's a quota error (0 limit) - skip to next model immediately
+        if (e.message.includes("limit: 0")) break;
+        // Wait with increasing delay before retry
+        if (attempt < 3) await new Promise(r => setTimeout(r, delays[attempt] || 6000));
       }
     }
   }
 
-  throw new Error(`All models failed: ${errors[errors.length - 1]}`);
+  throw new Error(`All models failed. Please try again in a few seconds.`);
 }
 
 // POST /ocr/parse-invoice - Parse invoice/receipt image
