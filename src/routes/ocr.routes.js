@@ -20,15 +20,15 @@ const upload = multer({
   },
 });
 
-// Call Gemini Vision API
-function callGemini(base64Image, mimeType) {
-  return new Promise((resolve, reject) => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return reject(new Error("GEMINI_API_KEY not configured"));
-    }
+// Models to try in order (fallback chain)
+const MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-001",
+  "gemini-2.0-flash-lite",
+];
 
-    const prompt = `You are an expert invoice and receipt parser. Analyze this image of an invoice or receipt and extract the following information in JSON format. Be very precise with the numbers and dates.
+const PROMPT = `You are an expert invoice and receipt parser. Analyze this image of an invoice or receipt and extract the following information in JSON format. Be very precise with the numbers and dates.
 
 Return ONLY valid JSON (no markdown, no code blocks) with this exact structure:
 {
@@ -66,27 +66,26 @@ Rules:
 - Extract ALL line items visible on the receipt
 - unitPrice should be the price per single unit BEFORE VAT`;
 
+// Single Gemini API call
+function callGeminiModel(base64Image, mimeType, model, apiKey) {
+  return new Promise((resolve, reject) => {
     const body = JSON.stringify({
       contents: [{
         parts: [
-          { text: prompt },
-          {
-            inline_data: {
-              mime_type: mimeType,
-              data: base64Image,
-            },
-          },
+          { text: PROMPT },
+          { inline_data: { mime_type: mimeType, data: base64Image } },
         ],
       }],
       generationConfig: {
         temperature: 0.1,
         maxOutputTokens: 2048,
+        responseMimeType: "application/json",
       },
     });
 
     const options = {
       hostname: "generativelanguage.googleapis.com",
-      path: `/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      path: `/v1beta/models/${model}:generateContent?key=${apiKey}`,
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -101,11 +100,11 @@ Rules:
         try {
           const parsed = JSON.parse(data);
           if (parsed.error) {
-            return reject(new Error(parsed.error.message || "Gemini API error"));
+            return reject(new Error(`[${model}] ${parsed.error.message || "API error"}`));
           }
           const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
           if (!text) {
-            return reject(new Error("No response from Gemini"));
+            return reject(new Error(`[${model}] No response text`));
           }
           // Clean up response - remove markdown code blocks if present
           let cleaned = text.trim();
@@ -115,15 +114,42 @@ Rules:
           const result = JSON.parse(cleaned);
           resolve(result);
         } catch (e) {
-          reject(new Error("Failed to parse Gemini response: " + e.message));
+          reject(new Error(`[${model}] Parse error: ${e.message}`));
         }
       });
     });
 
-    req.on("error", reject);
+    req.on("error", (e) => reject(new Error(`[${model}] Network error: ${e.message}`)));
     req.write(body);
     req.end();
   });
+}
+
+// Call Gemini with retry and model fallback
+async function callGemini(base64Image, mimeType) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY not configured");
+  }
+
+  const errors = [];
+
+  for (const model of MODELS) {
+    // Try each model up to 2 times
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const result = await callGeminiModel(base64Image, mimeType, model, apiKey);
+        return result;
+      } catch (e) {
+        errors.push(e.message);
+        console.warn(`OCR attempt ${attempt + 1} with ${model} failed: ${e.message}`);
+        // Wait briefly before retry
+        if (attempt === 0) await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+  }
+
+  throw new Error(`All models failed: ${errors[errors.length - 1]}`);
 }
 
 // POST /ocr/parse-invoice - Parse invoice/receipt image
