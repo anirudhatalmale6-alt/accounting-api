@@ -25,6 +25,7 @@ const payslipsRoutes = require("./routes/payslips.routes");
 const pipeSizingRoutes = require("./routes/pipe-sizing.routes");
 const merchantsRoutes = require("./routes/merchants.routes");
 const ocrRoutes = require("./routes/ocr.routes");
+const hmrcRoutes = require("./routes/hmrc.routes");
 const { requireAuth } = require("./middleware/auth");
 
 const app = express();
@@ -58,6 +59,7 @@ app.use("/payslips", requireAuth, payslipsRoutes);
 app.use("/pipe-sizing", requireAuth, pipeSizingRoutes);
 app.use("/merchants", requireAuth, merchantsRoutes);
 app.use("/ocr", requireAuth, ocrRoutes);
+app.use("/hmrc", requireAuth, hmrcRoutes);
 
 // serve uploaded files (dev)
 app.use("/uploads", express.static("uploads"));
