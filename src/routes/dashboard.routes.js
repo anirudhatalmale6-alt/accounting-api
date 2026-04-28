@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get("/summary", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
 
     const thisMonth = new Date();
     const monthStart = `${thisMonth.getFullYear()}-${String(thisMonth.getMonth() + 1).padStart(2, '0')}-01`;

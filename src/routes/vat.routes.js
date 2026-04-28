@@ -3,11 +3,25 @@ const db = require("../db");
 
 const router = express.Router();
 
+// Parse date - handles DD/MM/YYYY, YYYY-MM-DD, or fallback
+function parseDate(dateStr, fallback) {
+  if (!dateStr) return fallback;
+  // DD/MM/YYYY format
+  const ukMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (ukMatch) {
+    const [, day, month, year] = ukMatch;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  return fallback;
+}
+
 router.get("/return", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
-    const dateFrom = req.query.dateFrom || "1900-01-01";
-    const dateTo = req.query.dateTo || "2999-12-31";
+    const companyId = req.user.companyId;
+    const dateFrom = parseDate(req.query.dateFrom, "1900-01-01");
+    const dateTo = parseDate(req.query.dateTo, "2999-12-31");
 
     const vatAc = await db.query(
       `SELECT id FROM chart_of_accounts WHERE company_id=$1 AND code='2100'`,
@@ -74,9 +88,9 @@ router.get("/return", async (req, res, next) => {
 
 router.get("/summary", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
-    const dateFrom = req.query.dateFrom || "1900-01-01";
-    const dateTo = req.query.dateTo || "2999-12-31";
+    const companyId = req.user.companyId;
+    const dateFrom = parseDate(req.query.dateFrom, "1900-01-01");
+    const dateTo = parseDate(req.query.dateTo, "2999-12-31");
 
     // VAT on sales (output VAT)
     const salesVat = await db.query(

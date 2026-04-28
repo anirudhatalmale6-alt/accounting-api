@@ -141,10 +141,208 @@ async function generateBillPdfBuffer(companyId, billId) {
   });
 }
 
+
+// Helper: generate VAT summary PDF buffer
+async function generateVatSummaryPdfBuffer(companyId, dateFrom, dateTo) {
+  const PDFDocument = require("pdfkit");
+
+  const company = await db.query(`SELECT * FROM companies WHERE id=$1`, [companyId]);
+  const companyName = company.rows[0]?.name || "My Company";
+  const symbol = "£";
+
+  // VAT on sales (output VAT)
+  const salesVat = await db.query(
+    `SELECT COALESCE(SUM(vat_total),0) AS vat_collected,
+            COALESCE(SUM(net_total),0) AS sales_ex_vat,
+            COALESCE(SUM(total),0) AS sales_inc_vat,
+            COUNT(*) AS invoice_count
+     FROM invoices WHERE company_id=$1 AND invoice_date BETWEEN $2 AND $3`,
+    [companyId, dateFrom, dateTo]
+  );
+
+  // VAT on purchases (input VAT)
+  const purchaseVat = await db.query(
+    `SELECT COALESCE(SUM(bl.line_total * bl.vat_rate / 100),0) AS vat_paid,
+            COALESCE(SUM(bl.line_total),0) AS purchases_ex_vat,
+            COUNT(DISTINCT b.id) AS bill_count
+     FROM bills b
+     JOIN bill_lines bl ON bl.bill_id=b.id
+     WHERE b.company_id=$1 AND b.bill_date BETWEEN $2 AND $3`,
+    [companyId, dateFrom, dateTo]
+  );
+
+  const vatCollected = Number(salesVat.rows[0].vat_collected);
+  const vatPaid = Number(purchaseVat.rows[0].vat_paid);
+  const vatOwed = vatCollected - vatPaid;
+  const salesNet = Number(salesVat.rows[0].sales_ex_vat);
+  const salesGross = Number(salesVat.rows[0].sales_inc_vat);
+  const purchasesNet = Number(purchaseVat.rows[0].purchases_ex_vat);
+  const invoiceCount = Number(salesVat.rows[0].invoice_count);
+  const billCount = Number(purchaseVat.rows[0].bill_count);
+
+  // Get individual invoices for breakdown
+  const invoices = await db.query(
+    `SELECT i.invoice_number, i.invoice_date, c.name AS customer_name,
+            i.net_total, i.vat_total, i.total
+     FROM invoices i
+     LEFT JOIN customers c ON c.id = i.customer_id
+     WHERE i.company_id=$1 AND i.invoice_date BETWEEN $2 AND $3
+     ORDER BY i.invoice_date`,
+    [companyId, dateFrom, dateTo]
+  );
+
+  // Get individual bills for breakdown
+  const bills = await db.query(
+    `SELECT b.bill_number, b.bill_date, s.name AS supplier_name,
+            COALESCE(SUM(bl.line_total),0) AS net_total,
+            COALESCE(SUM(bl.line_total * bl.vat_rate / 100),0) AS vat_total,
+            b.total
+     FROM bills b
+     LEFT JOIN suppliers s ON s.id = b.supplier_id
+     JOIN bill_lines bl ON bl.bill_id = b.id
+     WHERE b.company_id=$1 AND b.bill_date BETWEEN $2 AND $3
+     GROUP BY b.id, b.bill_number, b.bill_date, s.name, b.total
+     ORDER BY b.bill_date`,
+    [companyId, dateFrom, dateTo]
+  );
+
+  return new Promise((resolve) => {
+    const doc = new PDFDocument({ margin: 50 });
+    const buffers = [];
+    doc.on("data", (b) => buffers.push(b));
+    doc.on("end", () => resolve(Buffer.concat(buffers)));
+
+    // Header
+    doc.fontSize(20).text(companyName, { align: "left" });
+    doc.moveDown(0.5);
+    doc.fontSize(16).text("VAT Summary Report");
+    doc.moveDown(0.3);
+    doc.fontSize(10).text(`Period: ${dateFrom} to ${dateTo}`);
+    doc.moveDown(1);
+
+    // Summary boxes
+    doc.fontSize(12).font("Helvetica-Bold");
+    doc.text("VAT Overview");
+    doc.moveDown(0.3);
+    doc.fontSize(10).font("Helvetica");
+
+    const col1 = 50, col2 = 400;
+    let y = doc.y;
+    doc.text("VAT Collected (Output VAT)", col1, y);
+    doc.text(`${symbol}${vatCollected.toFixed(2)}`, col2, y, { width: 100, align: "right" });
+    y += 18;
+    doc.text("VAT Paid (Input VAT)", col1, y);
+    doc.text(`${symbol}${vatPaid.toFixed(2)}`, col2, y, { width: 100, align: "right" });
+    y += 18;
+    doc.moveTo(col1, y).lineTo(500, y).stroke();
+    y += 5;
+    doc.font("Helvetica-Bold");
+    doc.text(vatOwed >= 0 ? "VAT Owed to HMRC" : "VAT Refund Due from HMRC", col1, y);
+    doc.text(`${symbol}${Math.abs(vatOwed).toFixed(2)}`, col2, y, { width: 100, align: "right" });
+    doc.font("Helvetica");
+
+    doc.moveDown(2);
+
+    // Sales breakdown
+    doc.fontSize(12).font("Helvetica-Bold");
+    doc.text(`Sales Breakdown (${invoiceCount} invoices)`);
+    doc.moveDown(0.3);
+    doc.fontSize(9).font("Helvetica");
+
+    if (invoices.rows.length > 0) {
+      // Table header
+      y = doc.y;
+      doc.font("Helvetica-Bold");
+      doc.text("Invoice", 50, y, { width: 70 });
+      doc.text("Date", 125, y, { width: 70 });
+      doc.text("Customer", 200, y, { width: 130 });
+      doc.text("Net", 335, y, { width: 55, align: "right" });
+      doc.text("VAT", 395, y, { width: 50, align: "right" });
+      doc.text("Total", 450, y, { width: 55, align: "right" });
+      doc.font("Helvetica");
+      doc.moveDown(0.5);
+
+      for (const inv of invoices.rows) {
+        y = doc.y;
+        if (y > 700) { doc.addPage(); y = doc.y; }
+        doc.text(inv.invoice_number || "", 50, y, { width: 70 });
+        doc.text(String(inv.invoice_date).slice(0, 10), 125, y, { width: 70 });
+        doc.text((inv.customer_name || "").slice(0, 20), 200, y, { width: 130 });
+        doc.text(`${symbol}${Number(inv.net_total).toFixed(2)}`, 335, y, { width: 55, align: "right" });
+        doc.text(`${symbol}${Number(inv.vat_total).toFixed(2)}`, 395, y, { width: 50, align: "right" });
+        doc.text(`${symbol}${Number(inv.total).toFixed(2)}`, 450, y, { width: 55, align: "right" });
+        doc.moveDown(0.3);
+      }
+
+      doc.moveDown(0.3);
+      doc.font("Helvetica-Bold");
+      y = doc.y;
+      doc.text("Total Sales", 50, y);
+      doc.text(`${symbol}${salesNet.toFixed(2)}`, 335, y, { width: 55, align: "right" });
+      doc.text(`${symbol}${vatCollected.toFixed(2)}`, 395, y, { width: 50, align: "right" });
+      doc.text(`${symbol}${salesGross.toFixed(2)}`, 450, y, { width: 55, align: "right" });
+      doc.font("Helvetica");
+    } else {
+      doc.text("No sales in this period.");
+    }
+
+    doc.moveDown(1.5);
+
+    // Purchases breakdown
+    doc.fontSize(12).font("Helvetica-Bold");
+    doc.text(`Purchases Breakdown (${billCount} bills)`);
+    doc.moveDown(0.3);
+    doc.fontSize(9).font("Helvetica");
+
+    if (bills.rows.length > 0) {
+      y = doc.y;
+      doc.font("Helvetica-Bold");
+      doc.text("Bill", 50, y, { width: 70 });
+      doc.text("Date", 125, y, { width: 70 });
+      doc.text("Supplier", 200, y, { width: 130 });
+      doc.text("Net", 335, y, { width: 55, align: "right" });
+      doc.text("VAT", 395, y, { width: 50, align: "right" });
+      doc.text("Total", 450, y, { width: 55, align: "right" });
+      doc.font("Helvetica");
+      doc.moveDown(0.5);
+
+      for (const b of bills.rows) {
+        y = doc.y;
+        if (y > 700) { doc.addPage(); y = doc.y; }
+        doc.text(b.bill_number || "", 50, y, { width: 70 });
+        doc.text(String(b.bill_date).slice(0, 10), 125, y, { width: 70 });
+        doc.text((b.supplier_name || "").slice(0, 20), 200, y, { width: 130 });
+        doc.text(`${symbol}${Number(b.net_total).toFixed(2)}`, 335, y, { width: 55, align: "right" });
+        doc.text(`${symbol}${Number(b.vat_total).toFixed(2)}`, 395, y, { width: 50, align: "right" });
+        doc.text(`${symbol}${Number(b.total).toFixed(2)}`, 450, y, { width: 55, align: "right" });
+        doc.moveDown(0.3);
+      }
+
+      doc.moveDown(0.3);
+      doc.font("Helvetica-Bold");
+      y = doc.y;
+      doc.text("Total Purchases", 50, y);
+      doc.text(`${symbol}${purchasesNet.toFixed(2)}`, 335, y, { width: 55, align: "right" });
+      doc.text(`${symbol}${vatPaid.toFixed(2)}`, 395, y, { width: 50, align: "right" });
+      doc.text(`${symbol}${(purchasesNet + vatPaid).toFixed(2)}`, 450, y, { width: 55, align: "right" });
+      doc.font("Helvetica");
+    } else {
+      doc.text("No purchases in this period.");
+    }
+
+    // Footer
+    doc.moveDown(2);
+    doc.fontSize(8).fillColor("gray");
+    doc.text(`Generated on ${new Date().toISOString().slice(0, 10)} by Gas Man Accounting`, { align: "center" });
+
+    doc.end();
+  });
+}
+
 // POST /email/invoices/:invoiceId/send
 router.post("/invoices/:invoiceId/send", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const invoiceId = Number(req.params.invoiceId);
     const toEmail = req.body.toEmail;
 
@@ -222,7 +420,7 @@ router.post("/invoices/:invoiceId/send", async (req, res, next) => {
 // POST /email/bills/:billId/send
 router.post("/bills/:billId/send", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const billId = Number(req.params.billId);
     const toEmail = req.body.toEmail;
 
@@ -292,6 +490,80 @@ router.post("/bills/:billId/send", async (req, res, next) => {
         pdfFilename: `${bill.bill_number}.pdf`,
       });
     }
+  } catch (e) { next(e); }
+});
+
+
+// POST /email/vat-summary/send - Send VAT summary PDF via email
+router.post("/vat-summary/send", async (req, res, next) => {
+  try {
+    const companyId = Number(req.user.companyId);
+    const toEmail = req.body.toEmail;
+    const dateFrom = req.body.dateFrom || "1900-01-01";
+    const dateTo = req.body.dateTo || new Date().toISOString().slice(0, 10);
+
+    if (!toEmail) {
+      return res.status(400).json({ error: "toEmail is required" });
+    }
+
+    const buffer = await generateVatSummaryPdfBuffer(companyId, dateFrom, dateTo);
+    const companyName = (await db.query('SELECT name FROM companies WHERE id=$1', [companyId])).rows[0]?.name || 'My Company';
+    const subject = `VAT Summary Report (${dateFrom} to ${dateTo}) - ${companyName}`;
+    const body = `Hi,\n\nPlease find the VAT Summary Report for the period ${dateFrom} to ${dateTo} attached.\n\nThanks,\n${companyName}`;
+    const filename = `VAT_Summary_${dateFrom}_to_${dateTo}.pdf`;
+
+    if (process.env.SMTP_HOST) {
+      const nodemailer = require("nodemailer");
+      const smtpConfig = {
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT || 587),
+        secure: process.env.SMTP_SECURE === "true",
+      };
+      if (process.env.SMTP_USER) {
+        smtpConfig.auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
+      }
+      const transporter = nodemailer.createTransport(smtpConfig);
+
+      try {
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || process.env.SMTP_USER,
+          to: toEmail,
+          subject,
+          text: body,
+          attachments: [{ filename, content: buffer }],
+        });
+
+        res.json({ sent: true, toEmail, subject, pdfFilename: filename });
+      } catch (mailErr) {
+        res.json({ sent: false, error: mailErr.message, toEmail });
+      }
+    } else {
+      res.json({
+        sent: false,
+        reason: "SMTP not configured",
+        toEmail,
+        subject,
+        pdfBase64: buffer.toString("base64"),
+        pdfFilename: filename,
+      });
+    }
+  } catch (e) { next(e); }
+});
+
+// GET /email/vat-summary/pdf - Download VAT summary as PDF
+router.get("/vat-summary/pdf", async (req, res, next) => {
+  try {
+    const companyId = Number(req.user.companyId);
+    const dateFrom = req.query.dateFrom || "1900-01-01";
+    const dateTo = req.query.dateTo || new Date().toISOString().slice(0, 10);
+
+    const buffer = await generateVatSummaryPdfBuffer(companyId, dateFrom, dateTo);
+    const filename = `VAT_Summary_${dateFrom}_to_${dateTo}.pdf`;
+
+    res.json({
+      pdfBase64: buffer.toString("base64"),
+      pdfFilename: filename,
+    });
   } catch (e) { next(e); }
 });
 

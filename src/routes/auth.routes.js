@@ -27,11 +27,9 @@ router.post("/register", async (req, res, next) => {
     try {
       await client.query("BEGIN");
 
-      // If companyId is provided, join that company; otherwise create a new one
+      // Always create a new company for each user (data isolation)
       let companyId;
-      if (req.body.companyId) {
-        companyId = Number(req.body.companyId);
-      } else {
+      {
         // Create a new company for this user
         const companyResult = await client.query(
           `INSERT INTO companies (name) VALUES ($1) RETURNING id`,
@@ -51,6 +49,9 @@ router.post("/register", async (req, res, next) => {
           ['5000', 'Cost of Sales', 'EXPENSE', 'COGS'],
           ['6000', 'Operating Expenses', 'EXPENSE', null],
           ['7000', 'Payroll Expenses', 'EXPENSE', 'PAYROLL'],
+          ['5100', 'CIS Labour', 'EXPENSE', 'CIS'],
+          ['5200', 'CIS Materials', 'EXPENSE', 'CIS'],
+          ['2200', 'CIS Tax Liability', 'LIABILITY', 'CIS'],
         ];
         for (const [code, name, type, subType] of defaultAccounts) {
           await client.query(
@@ -93,14 +94,13 @@ router.post("/register", async (req, res, next) => {
 
 router.post("/login", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || 1);
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
 
     const result = await db.query(
       `SELECT id, company_id, email, role, password_hash
-       FROM users WHERE company_id=$1 AND email=$2`,
-      [companyId, email]
+       FROM users WHERE email=$1`,
+      [email]
     );
 
     if (result.rowCount === 0) return res.status(401).json({ error: "Invalid credentials" });
@@ -128,16 +128,14 @@ router.post("/login", async (req, res, next) => {
 router.post("/forgot-password", async (req, res, next) => {
   try {
     const email = String(req.body.email || "").trim().toLowerCase();
-    const companyId = Number(req.body.companyId || 1);
-
     if (!email) {
       return res.status(400).json({ error: "Email is required" });
     }
 
     // Find user
     const userResult = await db.query(
-      `SELECT id, email FROM users WHERE email=$1 AND company_id=$2`,
-      [email, companyId]
+      `SELECT id, email FROM users WHERE email=$1`,
+      [email]
     );
 
     if (userResult.rowCount === 0) {
@@ -221,8 +219,6 @@ router.post("/verify-otp", async (req, res, next) => {
   try {
     const email = String(req.body.email || "").trim().toLowerCase();
     const otp = String(req.body.otp || "").trim();
-    const companyId = Number(req.body.companyId || 1);
-
     if (!email || !otp) {
       return res.status(400).json({ error: "Email and OTP are required" });
     }
@@ -230,9 +226,9 @@ router.post("/verify-otp", async (req, res, next) => {
     const result = await db.query(
       `SELECT o.*, u.company_id FROM password_reset_otps o
        JOIN users u ON u.id = o.user_id
-       WHERE o.email=$1 AND o.otp=$2 AND o.is_used=false AND u.company_id=$3
+       WHERE o.email=$1 AND o.otp=$2 AND o.is_used=false
        ORDER BY o.created_at DESC LIMIT 1`,
-      [email, otp, companyId]
+      [email, otp]
     );
 
     if (result.rowCount === 0) {
@@ -277,8 +273,6 @@ router.post("/reset-password", async (req, res, next) => {
     const email = String(req.body.email || "").trim().toLowerCase();
     const resetToken = String(req.body.resetToken || "").trim();
     const newPassword = String(req.body.newPassword || "");
-    const companyId = Number(req.body.companyId || 1);
-
     if (!email || !resetToken || !newPassword) {
       return res.status(400).json({ error: "Email, resetToken, and newPassword are required" });
     }
@@ -291,9 +285,9 @@ router.post("/reset-password", async (req, res, next) => {
     const result = await db.query(
       `SELECT o.*, u.company_id FROM password_reset_otps o
        JOIN users u ON u.id = o.user_id
-       WHERE o.email=$1 AND o.otp=$2 AND o.is_used=false AND u.company_id=$3
+       WHERE o.email=$1 AND o.otp=$2 AND o.is_used=false
        ORDER BY o.created_at DESC LIMIT 1`,
-      [email, resetToken, companyId]
+      [email, resetToken]
     );
 
     if (result.rowCount === 0) {
@@ -326,6 +320,104 @@ router.post("/reset-password", async (req, res, next) => {
     );
 
     res.json({ message: "Password reset successfully", success: true });
+  } catch (e) { next(e); }
+});
+
+
+// Check pending invitations for an email - public endpoint
+router.get("/pending-invites", async (req, res, next) => {
+  try {
+    const email = String(req.query.email || "").trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: "Email query parameter is required" });
+    }
+
+    const result = await db.query(
+      `SELECT i.id, i.email, i.role, i.invite_code, i.created_at,
+              c.name as company_name
+       FROM invitations i
+       JOIN companies c ON c.id = i.company_id
+       WHERE i.email = $1 AND i.status = 'pending'
+       ORDER BY i.created_at DESC`,
+      [email]
+    );
+
+    res.json({ invitations: result.rows });
+  } catch (e) { next(e); }
+});
+
+// Accept invitation - public endpoint (accountant doesn't have account yet)
+router.post("/accept-invite", async (req, res, next) => {
+  try {
+    const inviteCode = String(req.body.inviteCode || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const password = String(req.body.password || "");
+
+    if (!inviteCode || !email || !password) {
+      return res.status(400).json({ error: "inviteCode, email, and password are required" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+
+    const invResult = await db.query(
+      `SELECT * FROM invitations WHERE invite_code=$1 AND status='pending'`,
+      [inviteCode]
+    );
+
+    if (invResult.rowCount === 0) {
+      return res.status(404).json({ error: "Invalid or expired invitation code" });
+    }
+
+    const invite = invResult.rows[0];
+
+    if (invite.email !== email) {
+      return res.status(400).json({ error: "Email does not match the invitation" });
+    }
+
+    const existingUser = await db.query(
+      `SELECT id FROM users WHERE company_id=$1 AND email=$2`,
+      [invite.company_id, email]
+    );
+    if (existingUser.rowCount > 0) {
+      return res.status(409).json({ error: "You are already a member of this company" });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+
+    const client = await db.getClient();
+    try {
+      await client.query("BEGIN");
+
+      const userResult = await client.query(
+        `INSERT INTO users (company_id, email, password_hash, role)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, company_id, email, role`,
+        [invite.company_id, email, hash, invite.role]
+      );
+
+      await client.query(
+        `UPDATE invitations SET status='accepted', accepted_at=NOW() WHERE id=$1`,
+        [invite.id]
+      );
+
+      await client.query("COMMIT");
+
+      const user = userResult.rows[0];
+      const token = jwt.sign(
+        { userId: user.id, companyId: user.company_id, email: user.email, role: user.role },
+        process.env.JWT_SECRET || "dev_secret_change_me",
+        { expiresIn: "7d" }
+      );
+
+      res.json({ user, token });
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
   } catch (e) { next(e); }
 });
 

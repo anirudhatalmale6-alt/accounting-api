@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get("/movements", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const productId = req.query.productId ? Number(req.query.productId) : null;
     const dateFrom = req.query.dateFrom || null;
     const dateTo = req.query.dateTo || null;
@@ -37,7 +37,7 @@ router.get("/movements", async (req, res, next) => {
 
 router.get("/products/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const productId = Number(req.params.id);
 
     const p = await db.query(

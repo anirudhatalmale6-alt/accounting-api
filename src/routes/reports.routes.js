@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get("/pl", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const dateFrom = req.query.dateFrom || "1900-01-01";
     const dateTo = req.query.dateTo || "2999-12-31";
 
@@ -64,7 +64,7 @@ router.get("/pl", async (req, res, next) => {
 
 router.get("/bs", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const asAt = req.query.asAt || new Date().toISOString().slice(0, 10);
 
     // Accounts Receivable (unpaid invoice balances up to asAt date)
@@ -179,7 +179,7 @@ router.get("/bs", async (req, res, next) => {
 
 router.get("/tb", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const asAt = req.query.asAt || new Date().toISOString().slice(0, 10);
 
     const result = await db.query(

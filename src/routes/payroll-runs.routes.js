@@ -6,7 +6,7 @@ const router = express.Router();
 // Create a payroll run
 router.post("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const { runDate, periodStart, periodEnd, notes, lines } = req.body;
 
     if (!runDate || !periodStart || !periodEnd) {
@@ -75,7 +75,7 @@ router.post("/", async (req, res, next) => {
 // List payroll runs
 router.get("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const status = req.query.status || null;
     let q = `SELECT * FROM payroll_runs WHERE company_id=$1`;
     const params = [companyId];
@@ -92,7 +92,7 @@ router.get("/", async (req, res, next) => {
 // Get payroll run detail with lines
 router.get("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const runId = Number(req.params.id);
 
     const run = await db.query(
@@ -117,7 +117,7 @@ router.get("/:id", async (req, res, next) => {
 // Update payroll run status (DRAFT -> APPROVED -> PAID)
 router.put("/:id/status", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const runId = Number(req.params.id);
     const { status } = req.body;
 
@@ -137,7 +137,7 @@ router.put("/:id/status", async (req, res, next) => {
 // Update payroll run (edit lines)
 router.put("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const runId = Number(req.params.id);
     const { runDate, periodStart, periodEnd, notes, lines } = req.body;
 
@@ -214,7 +214,7 @@ router.put("/:id", async (req, res, next) => {
 // Delete payroll run
 router.delete("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const runId = Number(req.params.id);
 
     const existing = await db.query(

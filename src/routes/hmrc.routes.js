@@ -1,13 +1,81 @@
 const express = require("express");
 const crypto = require("crypto");
 const https = require("https");
+const os = require("os");
 const db = require("../db");
 
 const router = express.Router();
 
 // --- Helpers ---
 
-function hmrcRequest(method, path, accessToken, body) {
+// Build HMRC fraud prevention headers from request
+function buildFraudHeaders(req) {
+  const headers = {};
+
+  // Connection method - mobile app via server
+  headers["Gov-Client-Connection-Method"] = "MOBILE_APP_VIA_SERVER";
+
+  // Device ID - from app or generate from user
+  headers["Gov-Client-Device-ID"] = req.headers["gov-client-device-id"]
+    || req.headers["x-device-id"]
+    || crypto.createHash("md5").update(String(req.user?.companyId || "unknown")).digest("hex");
+
+  // User IDs - encode the app user identifier
+  const email = req.user?.email || "unknown";
+  headers["Gov-Client-User-IDs"] = `app=${encodeURIComponent(email)}`;
+
+  // Timezone - from app or default to Europe/London
+  headers["Gov-Client-Timezone"] = req.headers["gov-client-timezone"]
+    || req.headers["x-timezone"]
+    || "UTC+00:00";
+
+  // Client public IP - the IP of the mobile device
+  const clientIp = req.headers["x-forwarded-for"]?.split(",")[0]?.trim()
+    || req.headers["x-real-ip"]
+    || req.ip
+    || "127.0.0.1";
+  headers["Gov-Client-Public-IP"] = clientIp;
+
+  // Client public port
+  headers["Gov-Client-Public-Port"] = String(req.headers["x-forwarded-port"] || req.socket?.remotePort || "0");
+
+  // Screen resolution - from app
+  headers["Gov-Client-Screens"] = req.headers["gov-client-screens"]
+    || req.headers["x-screen-resolution"]
+    || "width=360&height=800";
+
+  // User agent - from mobile app
+  headers["Gov-Client-User-Agent"] = req.headers["user-agent"] || "GasManBusiness/1.0";
+
+  // Local IPs and timestamp - from app or use server values
+  headers["Gov-Client-Local-IPs"] = req.headers["gov-client-local-ips"]
+    || req.headers["x-local-ip"]
+    || clientIp;
+
+  headers["Gov-Client-Local-IPs-Timestamp"] = req.headers["gov-client-local-ips-timestamp"]
+    || req.headers["x-local-ip-timestamp"]
+    || new Date().toISOString();
+
+  // Vendor details - our server info
+  const serverIps = Object.values(os.networkInterfaces())
+    .flat()
+    .filter(i => i && !i.internal && i.family === "IPv4")
+    .map(i => i.address)
+    .join(",") || "89.167.18.163";
+
+  headers["Gov-Vendor-Public-IP"] = serverIps.split(",")[0];
+  headers["Gov-Vendor-Version"] = "GasManBusiness=1.0";
+  headers["Gov-Vendor-Product-Name"] = "Gas+Man+Business";
+
+  // Multi-factor - from app
+  if (req.headers["gov-client-multi-factor"]) {
+    headers["Gov-Client-Multi-Factor"] = req.headers["gov-client-multi-factor"];
+  }
+
+  return headers;
+}
+
+function hmrcRequest(method, path, accessToken, body, fraudHeaders) {
   return new Promise((resolve, reject) => {
     const baseUrl = process.env.HMRC_BASE_URL || "https://test-api.service.hmrc.gov.uk";
     const url = new URL(path, baseUrl);
@@ -24,6 +92,11 @@ function hmrcRequest(method, path, accessToken, body) {
 
     if (accessToken) {
       options.headers["Authorization"] = `Bearer ${accessToken}`;
+    }
+
+    // Add fraud prevention headers
+    if (fraudHeaders) {
+      Object.assign(options.headers, fraudHeaders);
     }
 
     const req = https.request(options, (res) => {
@@ -154,7 +227,7 @@ router.get("/auth-url", (req, res) => {
     return res.status(500).json({ error: "HMRC not configured. Set HMRC_CLIENT_ID and HMRC_REDIRECT_URI." });
   }
 
-  const state = crypto.randomBytes(16).toString("hex");
+  const state = req.user.companyId + "_" + crypto.randomBytes(16).toString("hex");
 
   const url =
     `${authUrl}?response_type=code` +
@@ -166,12 +239,17 @@ router.get("/auth-url", (req, res) => {
   res.json({ url });
 });
 
-// GET /hmrc/callback - Exchange auth code for tokens
+// GET /hmrc/callback - Exchange auth code for tokens (PUBLIC - no auth needed)
 router.get("/callback", async (req, res, next) => {
   try {
-    const { code } = req.query;
+    const { code, state } = req.query;
     if (!code) {
       return res.status(400).json({ error: "Missing authorization code" });
+    }
+    // Extract companyId from state parameter
+    const companyId = state ? parseInt(state.split("_")[0]) : null;
+    if (!companyId) {
+      return res.status(400).json({ error: "Invalid state parameter" });
     }
 
     const baseUrl = process.env.HMRC_BASE_URL || "https://test-api.service.hmrc.gov.uk";
@@ -220,7 +298,6 @@ router.get("/callback", async (req, res, next) => {
 
     const data = tokenRes;
     const expiresAt = new Date(Date.now() + data.expires_in * 1000);
-    const companyId = req.user.companyId;
 
     // Upsert token
     await db.query(
@@ -272,12 +349,14 @@ router.post("/vat-submit", async (req, res, next) => {
     }
 
     const accessToken = await getValidAccessToken(companyId);
+    const fraudHeaders = buildFraudHeaders(req);
 
     const response = await hmrcRequest(
       "POST",
       `/organisations/vat/${vrn}/returns`,
       accessToken,
-      vatData
+      vatData,
+      fraudHeaders
     );
 
     // Store submission record
@@ -316,11 +395,12 @@ router.get("/vat-obligations", async (req, res, next) => {
     }
 
     const accessToken = await getValidAccessToken(companyId);
+    const fraudHeaders = buildFraudHeaders(req);
 
     let path = `/organisations/vat/${vrn}/obligations?from=${from || "2024-01-01"}&to=${to || new Date().toISOString().slice(0, 10)}`;
     if (status) path += `&status=${status}`;
 
-    const response = await hmrcRequest("GET", path, accessToken);
+    const response = await hmrcRequest("GET", path, accessToken, null, fraudHeaders);
     res.json(response);
   } catch (err) {
     res.status(err.status || 500).json({
@@ -342,11 +422,14 @@ router.get("/vat-return/:periodKey", async (req, res, next) => {
     }
 
     const accessToken = await getValidAccessToken(companyId);
+    const fraudHeaders = buildFraudHeaders(req);
 
     const response = await hmrcRequest(
       "GET",
       `/organisations/vat/${vrn}/returns/${periodKey}`,
-      accessToken
+      accessToken,
+      null,
+      fraudHeaders
     );
     res.json(response);
   } catch (err) {

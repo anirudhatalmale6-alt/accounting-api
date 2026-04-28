@@ -6,7 +6,7 @@ const router = express.Router();
 // POST /employees
 router.post("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const { firstName, lastName, email, phone, jobTitle, department,
             salary, startDate, niNumber, taxCode } = req.body;
 
@@ -31,7 +31,7 @@ router.post("/", async (req, res, next) => {
 // GET /employees
 router.get("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const activeOnly = req.query.active !== "false";
 
     let q = `SELECT * FROM employees WHERE company_id=$1`;
@@ -51,7 +51,7 @@ router.get("/", async (req, res, next) => {
 // GET /employees/:id
 router.get("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const id = Number(req.params.id);
 
     const result = await db.query(
@@ -67,7 +67,7 @@ router.get("/:id", async (req, res, next) => {
 // PUT /employees/:id
 router.put("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const id = Number(req.params.id);
     const { firstName, lastName, email, phone, jobTitle, department,
             salary, startDate, niNumber, taxCode, isActive } = req.body;
@@ -101,7 +101,7 @@ router.put("/:id", async (req, res, next) => {
 // DELETE /employees/:id
 router.delete("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const id = Number(req.params.id);
 
     const result = await db.query(

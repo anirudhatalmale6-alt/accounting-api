@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.post("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const { name, email, phone, address, vatNumber, contactPerson } = req.body;
     if (!name) return res.status(400).json({ error: "name is required" });
 
@@ -21,7 +21,7 @@ router.post("/", async (req, res, next) => {
 
 router.get("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const search = req.query.search || null;
     let q = `SELECT * FROM customers WHERE company_id=$1`;
     const params = [companyId];
@@ -37,7 +37,7 @@ router.get("/", async (req, res, next) => {
 
 router.get("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const out = await db.query(
       `SELECT * FROM customers WHERE id=$1 AND company_id=$2`,
       [Number(req.params.id), companyId]
@@ -49,7 +49,7 @@ router.get("/:id", async (req, res, next) => {
 
 router.put("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const { name, email, phone, address, vatNumber, contactPerson } = req.body;
     const out = await db.query(
       `UPDATE customers SET
@@ -66,7 +66,7 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const out = await db.query(
       `DELETE FROM customers WHERE id=$1 AND company_id=$2 RETURNING id`,
       [Number(req.params.id), companyId]

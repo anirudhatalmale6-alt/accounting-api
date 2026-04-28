@@ -7,7 +7,7 @@ const router = express.Router();
 // List products
 router.get("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const search = req.query.search || null;
     const category = req.query.category || null;
     const type = req.query.type || null;
@@ -41,7 +41,7 @@ router.get("/", async (req, res, next) => {
 // Get single product
 router.get("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const id = Number(req.params.id);
     const out = await db.query(`SELECT * FROM products WHERE company_id=$1 AND id=$2`, [companyId, id]);
     if (out.rowCount === 0) return res.status(404).json({ error: "Product not found" });
@@ -52,7 +52,7 @@ router.get("/:id", async (req, res, next) => {
 // Create product
 router.post("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const { name, sku, description, type, price, cost, vatRate, stockQty, trackInventory, barcode, category } = req.body;
 
     if (!name) {
@@ -90,7 +90,7 @@ router.post("/", async (req, res, next) => {
 // Update product
 router.put("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const id = Number(req.params.id);
     const { name, sku, description, type, price, cost, vatRate, stockQty, trackInventory, barcode, category } = req.body;
 
@@ -117,7 +117,7 @@ router.put("/:id", async (req, res, next) => {
 // Get stock movements for a product
 router.get("/:id/stock-movements", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const productId = Number(req.params.id);
     const dateFrom = req.query.dateFrom || null;
     const dateTo = req.query.dateTo || null;
@@ -161,7 +161,7 @@ router.get("/:id/stock-movements", async (req, res, next) => {
 // Add manual stock adjustment for a product
 router.post("/:id/stock-movements", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const productId = Number(req.params.id);
     const { quantityChange, reason, note } = req.body;
 
@@ -205,7 +205,7 @@ router.post("/:id/stock-movements", async (req, res, next) => {
 // Delete product
 router.delete("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const id = Number(req.params.id);
     const out = await db.query(
       `DELETE FROM products WHERE id=$1 AND company_id=$2 RETURNING id`,
@@ -219,7 +219,7 @@ router.delete("/:id", async (req, res, next) => {
 // Import products from CSV/Excel
 router.post("/import", upload.single("file"), async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     if (!req.file) {
       const err = new Error("No file uploaded");
       err.status = 400;

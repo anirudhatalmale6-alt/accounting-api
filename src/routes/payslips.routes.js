@@ -8,7 +8,7 @@ const router = express.Router();
 // payslipId = payroll_run_lines.id
 router.get("/:payslipId/pdf", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const payslipId = Number(req.params.payslipId);
 
     // Get payroll run line with employee and run details
@@ -58,7 +58,7 @@ router.get("/:payslipId/pdf", async (req, res, next) => {
 // List payslips for an employee
 router.get("/employee/:employeeId", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const employeeId = Number(req.params.employeeId);
 
     const result = await db.query(
@@ -78,7 +78,7 @@ router.get("/employee/:employeeId", async (req, res, next) => {
 // Get single payslip detail
 router.get("/:payslipId", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const payslipId = Number(req.params.payslipId);
 
     const result = await db.query(

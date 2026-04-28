@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.post("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const { accountName, bankName, accountNumber, sortCode, iban, swiftBic, currency, openingBalance, isDefault } = req.body;
     if (!accountName) return res.status(400).json({ error: "accountName is required" });
 
@@ -22,7 +22,7 @@ router.post("/", async (req, res, next) => {
 
 router.get("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const out = await db.query(
       `SELECT * FROM bank_accounts WHERE company_id=$1 ORDER BY is_default DESC, account_name`,
       [companyId]
@@ -33,7 +33,7 @@ router.get("/", async (req, res, next) => {
 
 router.get("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const out = await db.query(
       `SELECT * FROM bank_accounts WHERE id=$1 AND company_id=$2`,
       [Number(req.params.id), companyId]
@@ -45,7 +45,7 @@ router.get("/:id", async (req, res, next) => {
 
 router.put("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const { accountName, bankName, accountNumber, sortCode, iban, swiftBic, currency, currentBalance, isDefault, isActive } = req.body;
     const out = await db.query(
       `UPDATE bank_accounts SET
@@ -65,7 +65,7 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const out = await db.query(
       `DELETE FROM bank_accounts WHERE id=$1 AND company_id=$2 RETURNING id`,
       [Number(req.params.id), companyId]

@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.post("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const { supplierId, billNumber, billDate, dueDate, lines } = req.body;
 
     if (!supplierId || !billNumber || !billDate ||
@@ -23,7 +23,7 @@ router.post("/", async (req, res, next) => {
 
 router.get("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const data = await listBills({
       companyId,
       supplierId: req.query.supplierId ? Number(req.query.supplierId) : null,
@@ -39,7 +39,7 @@ router.get("/", async (req, res, next) => {
 
 router.get("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const billId = Number(req.params.id);
     const detail = await getBillDetail({ companyId, billId });
     if (!detail) return res.status(404).json({ error: "Bill not found" });
@@ -49,7 +49,7 @@ router.get("/:id", async (req, res, next) => {
 
 router.put("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const billId = Number(req.params.id);
     const updated = await updateBill({ companyId, billId, patch: req.body });
     res.json({ bill: updated });
@@ -58,7 +58,7 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const billId = Number(req.params.id);
     const out = await deleteBill({ companyId, billId });
     res.json(out);

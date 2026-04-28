@@ -109,7 +109,7 @@ const DEFAULT_MERCHANTS = [
 // GET /merchants - list recommended plumbing merchants
 router.get("/", async (req, res) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const category = req.query.category || null;
     const search = req.query.search || null;
 
@@ -155,7 +155,7 @@ router.get("/", async (req, res) => {
 // POST /merchants - add a custom recommended merchant
 router.post("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const { name, category, website, phone, description, specialties, deliveryAvailable, tradeAccount } = req.body;
 
     if (!name) return res.status(400).json({ error: "name is required" });
@@ -191,7 +191,7 @@ router.post("/", async (req, res, next) => {
 // DELETE /merchants/:id - remove a custom merchant
 router.delete("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const id = Number(req.params.id);
 
     const result = await db.query(

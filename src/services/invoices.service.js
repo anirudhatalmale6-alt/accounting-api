@@ -28,6 +28,7 @@ async function getInvoiceWithLines(client, companyId, invoiceId) {
     due_date: row.due_date, status: row.status, net_total: row.net_total,
     vat_total: row.vat_total, total: row.total, balance: row.balance,
     journal_entry_id: row.journal_entry_id,
+    note: row.note || null,
     created_at: row.created_at, updated_at: row.updated_at,
   };
 
@@ -103,7 +104,7 @@ async function applyInvoiceStockMovement(client, companyId, invoiceId,
 }
 
 async function createInvoice({ companyId, customerId, invoiceNumber,
-  invoiceDate, dueDate, lines }) {
+  invoiceDate, dueDate, lines, note }) {
   const client = await db.getClient();
   try {
     await client.query("BEGIN");
@@ -112,11 +113,11 @@ async function createInvoice({ companyId, customerId, invoiceNumber,
 
     const invRes = await client.query(
       `INSERT INTO invoices (company_id, customer_id, invoice_number,
-       invoice_date, due_date, status, net_total, vat_total, total, balance)
-       VALUES ($1,$2,$3,$4,$5,'SENT',$6,$7,$8,$8)
+       invoice_date, due_date, status, net_total, vat_total, total, balance, note)
+       VALUES ($1,$2,$3,$4,$5,'SENT',$6,$7,$8,$8,$9)
        RETURNING *`,
       [companyId, customerId, invoiceNumber, invoiceDate, dueDate || null,
-       totals.netTotal, totals.vatTotal, totals.total]
+       totals.netTotal, totals.vatTotal, totals.total, note || null]
     );
     const invoice = invRes.rows[0];
 
@@ -244,15 +245,16 @@ async function updateInvoice({ companyId, invoiceId, patch }) {
     const invoiceDate = patch.invoiceDate || oldInvoice.invoice_date;
     const dueDate = patch.dueDate ?? oldInvoice.due_date;
     const status = patch.status || oldInvoice.status;
+    const note = patch.note !== undefined ? patch.note : (oldInvoice.note || null);
 
     const upd = await client.query(
       `UPDATE invoices
        SET invoice_number=$1, invoice_date=$2, due_date=$3, status=$4,
-           net_total=$5, vat_total=$6, total=$7, updated_at=NOW()
-       WHERE company_id=$8 AND id=$9
+           net_total=$5, vat_total=$6, total=$7, note=$8, updated_at=NOW()
+       WHERE company_id=$9 AND id=$10
        RETURNING *`,
       [invoiceNumber, invoiceDate, dueDate, status, totals.netTotal,
-       totals.vatTotal, totals.total, companyId, invoiceId]
+       totals.vatTotal, totals.total, note, companyId, invoiceId]
     );
 
     for (const l of newLines) {

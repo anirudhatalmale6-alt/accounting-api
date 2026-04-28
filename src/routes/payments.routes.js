@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.post("/customer-receipt", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const { invoiceId, amount, paymentDate, memo } = req.body;
 
     if (!invoiceId || !amount || !paymentDate) {
@@ -22,7 +22,7 @@ router.post("/customer-receipt", async (req, res, next) => {
 
 router.post("/supplier-payment", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const { billId, amount, paymentDate, memo } = req.body;
 
     if (!billId || !amount || !paymentDate) {

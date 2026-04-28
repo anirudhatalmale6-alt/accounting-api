@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get("/:type(invoice|bill)/:id/attachments", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const parentType = req.params.type;
     const parentId = Number(req.params.id);
     const attachments = await listAttachments({ companyId, parentType, parentId });
@@ -17,7 +17,7 @@ router.get("/:type(invoice|bill)/:id/attachments", async (req, res, next) => {
 router.post("/:type(invoice|bill)/:id/attachments",
   upload.single("file"), async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const parentType = req.params.type;
     const parentId = Number(req.params.id);
 
@@ -34,7 +34,7 @@ router.post("/:type(invoice|bill)/:id/attachments",
 
 router.delete("/attachments/:attachmentId", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const attachmentId = Number(req.params.attachmentId);
 
     const deleted = await deleteAttachment({ companyId, attachmentId });

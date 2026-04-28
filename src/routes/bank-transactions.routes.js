@@ -6,7 +6,7 @@ const router = express.Router();
 // Create bank transaction
 router.post("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const { bankAccountId, transactionDate, type, amount, description, reference, category, invoiceId, billId, paymentId } = req.body;
 
     if (!bankAccountId || !transactionDate || !amount) {
@@ -50,7 +50,7 @@ router.post("/", async (req, res, next) => {
 // List bank transactions
 router.get("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const bankAccountId = req.query.bankAccountId ? Number(req.query.bankAccountId) : null;
     const dateFrom = req.query.dateFrom || null;
     const dateTo = req.query.dateTo || null;
@@ -93,7 +93,7 @@ router.get("/", async (req, res, next) => {
 // Get single transaction
 router.get("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const out = await db.query(
       `SELECT bt.*, ba.account_name AS bank_account_name
        FROM bank_transactions bt
@@ -109,7 +109,7 @@ router.get("/:id", async (req, res, next) => {
 // Update transaction
 router.put("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const txId = Number(req.params.id);
     const { description, reference, category, isReconciled } = req.body;
 
@@ -129,7 +129,7 @@ router.put("/:id", async (req, res, next) => {
 // Delete transaction (reverses balance change)
 router.delete("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const txId = Number(req.params.id);
 
     const existing = await db.query(
@@ -166,7 +166,7 @@ router.delete("/:id", async (req, res, next) => {
 // Reconcile multiple transactions
 router.post("/reconcile", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const { transactionIds } = req.body;
 
     if (!Array.isArray(transactionIds) || transactionIds.length === 0) {

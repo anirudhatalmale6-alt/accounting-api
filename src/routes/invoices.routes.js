@@ -8,7 +8,7 @@ const router = express.Router();
 // GET /invoices/next-number - get next auto-increment invoice number
 router.get("/next-number", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const prefix = req.query.prefix || "INV-";
 
     // Get the latest invoice number for this company
@@ -50,8 +50,8 @@ router.get("/next-number", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
-    const { customerId, invoiceNumber, invoiceDate, dueDate, lines } = req.body;
+    const companyId = Number(req.user.companyId);
+    const { customerId, invoiceNumber, invoiceDate, dueDate, lines, note } = req.body;
 
     if (!customerId || !invoiceNumber || !invoiceDate ||
       !Array.isArray(lines) || lines.length === 0) {
@@ -59,14 +59,14 @@ router.post("/", async (req, res, next) => {
     }
 
     const invoice = await createInvoice({ companyId, customerId,
-      invoiceNumber, invoiceDate, dueDate, lines });
+      invoiceNumber, invoiceDate, dueDate, lines, note });
     res.json({ invoice });
   } catch (e) { next(e); }
 });
 
 router.get("/", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const data = await listInvoices({
       companyId,
       customerId: req.query.customerId ? Number(req.query.customerId) : null,
@@ -82,7 +82,7 @@ router.get("/", async (req, res, next) => {
 
 router.get("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const invoiceId = Number(req.params.id);
     const detail = await getInvoiceDetail({ companyId, invoiceId });
     if (!detail) return res.status(404).json({ error: "Invoice not found" });
@@ -92,7 +92,7 @@ router.get("/:id", async (req, res, next) => {
 
 router.put("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.body.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const invoiceId = Number(req.params.id);
     const updated = await updateInvoice({ companyId, invoiceId, patch: req.body });
     res.json({ invoice: updated });
@@ -101,7 +101,7 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const companyId = Number(req.query.companyId || req.user.companyId || 1);
+    const companyId = Number(req.user.companyId);
     const invoiceId = Number(req.params.id);
     const out = await deleteInvoice({ companyId, invoiceId });
     res.json(out);
