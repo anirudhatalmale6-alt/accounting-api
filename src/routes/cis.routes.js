@@ -37,8 +37,8 @@ router.get("/subcontractors/:id", async (req, res, next) => {
 router.post("/subcontractors", async (req, res, next) => {
   try {
     const companyId = Number(req.user.companyId);
-    const { name, trading_name, utr, nino, company_reg, phone, email,
-            address_line1, address_line2, city, postcode } = req.body;
+    const { name, trading_name, company_details, utr, nino, national_insurance_number,
+            company_reg, phone, email, address, address_line1, address_line2, city, postcode } = req.body;
 
     if (!name) return res.status(400).json({ error: "Name is required" });
 
@@ -48,14 +48,22 @@ router.post("/subcontractors", async (req, res, next) => {
         address_line1, address_line2, city, postcode)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        RETURNING *`,
-      [companyId, name, trading_name || null, utr || null, nino || null,
-       company_reg || null, phone || null, email || null,
-       address_line1 || null, address_line2 || null, city || null, postcode || null]
+      [companyId, name,
+       trading_name || company_details || null,
+       utr || null,
+       nino || national_insurance_number || null,
+       company_reg || null,
+       phone || null,
+       email || null,
+       address_line1 || address || null,
+       address_line2 || null,
+       city || null,
+       postcode || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (e) {
     if (String(e.message).includes("cis_subcontractors_company_id_utr_key")) {
-      return res.status(409).json({ error: "A subcontractor with this UTR already exists" });
+      return res.status(400).json({ error: "A subcontractor with this UTR already exists" });
     }
     next(e);
   }
@@ -66,8 +74,9 @@ router.put("/subcontractors/:id", async (req, res, next) => {
   try {
     const companyId = Number(req.user.companyId);
     const id = Number(req.params.id);
-    const { name, trading_name, utr, nino, company_reg, phone, email,
-            address_line1, address_line2, city, postcode, deduction_rate } = req.body;
+    const { name, trading_name, company_details, utr, nino, national_insurance_number,
+            company_reg, phone, email, address, address_line1, address_line2,
+            city, postcode, deduction_rate } = req.body;
 
     const result = await db.query(
       `UPDATE cis_subcontractors SET
@@ -80,8 +89,9 @@ router.put("/subcontractors/:id", async (req, res, next) => {
         deduction_rate=COALESCE($14, deduction_rate),
         updated_at=NOW()
        WHERE id=$1 AND company_id=$2 RETURNING *`,
-      [id, companyId, name, trading_name, utr, nino, company_reg,
-       phone, email, address_line1, address_line2, city, postcode,
+      [id, companyId, name, trading_name || company_details,
+       utr, nino || national_insurance_number, company_reg,
+       phone, email, address_line1 || address, address_line2, city, postcode,
        deduction_rate != null ? deduction_rate : null]
     );
     if (result.rowCount === 0) return res.status(404).json({ error: "Subcontractor not found" });
