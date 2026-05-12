@@ -213,7 +213,12 @@ router.delete("/:id", async (req, res, next) => {
     );
     if (out.rowCount === 0) return res.status(404).json({ error: "Product not found" });
     res.json({ deleted: true });
-  } catch (e) { next(e); }
+  } catch (e) {
+    if (String(e.message).includes("foreign key constraint")) {
+      return res.status(400).json({ error: "Cannot delete this part because it is used in existing invoices. Remove it from invoices first." });
+    }
+    next(e);
+  }
 });
 
 // Import products from CSV/Excel
