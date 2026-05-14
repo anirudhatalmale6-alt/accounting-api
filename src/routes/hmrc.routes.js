@@ -348,7 +348,13 @@ router.post("/vat-submit", async (req, res, next) => {
       }
     }
 
-    const accessToken = await getValidAccessToken(companyId);
+    let accessToken;
+    try {
+      accessToken = await getValidAccessToken(companyId);
+    } catch (tokenErr) {
+      return res.status(400).json({ error: "HMRC not connected or token expired. Please reconnect HMRC in Settings before submitting." });
+    }
+
     const fraudHeaders = buildFraudHeaders(req);
 
     const response = await hmrcRequest(
@@ -391,10 +397,16 @@ router.get("/vat-obligations", async (req, res, next) => {
     const { vrn, from, to, status } = req.query;
 
     if (!vrn) {
-      return res.status(400).json({ error: "vrn query parameter is required" });
+      return res.json({ obligations: [] });
     }
 
-    const accessToken = await getValidAccessToken(companyId);
+    let accessToken;
+    try {
+      accessToken = await getValidAccessToken(companyId);
+    } catch (tokenErr) {
+      return res.json({ obligations: [], tokenError: true, message: "HMRC not connected or token expired. Please reconnect HMRC." });
+    }
+
     const fraudHeaders = buildFraudHeaders(req);
 
     let path = `/organisations/vat/${vrn}/obligations?from=${from || "2024-01-01"}&to=${to || new Date().toISOString().slice(0, 10)}`;
@@ -403,7 +415,8 @@ router.get("/vat-obligations", async (req, res, next) => {
     const response = await hmrcRequest("GET", path, accessToken, null, fraudHeaders);
     res.json(response);
   } catch (err) {
-    res.status(err.status || 500).json({
+    res.json({
+      obligations: [],
       error: "Failed to fetch VAT obligations",
       details: err.data || err.message,
     });
@@ -418,10 +431,16 @@ router.get("/vat-return/:periodKey", async (req, res, next) => {
     const { periodKey } = req.params;
 
     if (!vrn) {
-      return res.status(400).json({ error: "vrn query parameter is required" });
+      return res.json({ vatReturn: null, message: "VRN not configured" });
     }
 
-    const accessToken = await getValidAccessToken(companyId);
+    let accessToken;
+    try {
+      accessToken = await getValidAccessToken(companyId);
+    } catch (tokenErr) {
+      return res.json({ vatReturn: null, tokenError: true, message: "HMRC not connected or token expired. Please reconnect HMRC." });
+    }
+
     const fraudHeaders = buildFraudHeaders(req);
 
     const response = await hmrcRequest(
@@ -433,7 +452,8 @@ router.get("/vat-return/:periodKey", async (req, res, next) => {
     );
     res.json(response);
   } catch (err) {
-    res.status(err.status || 500).json({
+    res.json({
+      vatReturn: null,
       error: "Failed to fetch VAT return",
       details: err.data || err.message,
     });
