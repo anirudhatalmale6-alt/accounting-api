@@ -31,6 +31,7 @@ const cisRoutes = require("./routes/cis.routes");
 const adminRoutes = require("./routes/admin.routes");
 const engineersRoutes = require("./routes/engineers.routes");
 const jobsRoutes = require("./routes/jobs.routes");
+const remindersRoutes = require("./routes/reminders.routes");
 const { requireAuth } = require("./middleware/auth");
 
 const app = express();
@@ -121,6 +122,7 @@ app.use("/cis", requireAuth, cisRoutes);
 app.use("/admin", requireAuth, adminRoutes);
 app.use("/", requireAuth, engineersRoutes);
 app.use("/", requireAuth, jobsRoutes);
+app.use("/", requireAuth, remindersRoutes);
 
 // serve uploaded files (dev)
 app.use("/uploads", express.static("uploads"));
