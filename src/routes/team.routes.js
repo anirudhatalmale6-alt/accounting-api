@@ -226,6 +226,9 @@ router.delete("/delete-account", async (req, res, next) => {
       await client.query(`DELETE FROM cis_deductions WHERE company_id=$1`, [companyId]);
       await client.query(`DELETE FROM cis_returns WHERE company_id=$1`, [companyId]);
       await client.query(`DELETE FROM cis_subcontractors WHERE company_id=$1`, [companyId]);
+      await client.query(`DELETE FROM jobs WHERE company_id=$1`, [companyId]);
+      await client.query(`DELETE FROM engineers WHERE company_id=$1`, [companyId]);
+      await client.query(`DELETE FROM team_members WHERE company_id=$1`, [companyId]);
       await client.query(`DELETE FROM invitations WHERE company_id=$1`, [companyId]);
 
       // Password reset OTPs for all users in this company

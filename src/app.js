@@ -29,6 +29,8 @@ const hmrcRoutes = require("./routes/hmrc.routes");
 const teamRoutes = require("./routes/team.routes");
 const cisRoutes = require("./routes/cis.routes");
 const adminRoutes = require("./routes/admin.routes");
+const engineersRoutes = require("./routes/engineers.routes");
+const jobsRoutes = require("./routes/jobs.routes");
 const { requireAuth } = require("./middleware/auth");
 
 const app = express();
@@ -117,6 +119,8 @@ app.use("/hmrc", requireAuth, hmrcRoutes);
 app.use("/team", requireAuth, teamRoutes);
 app.use("/cis", requireAuth, cisRoutes);
 app.use("/admin", requireAuth, adminRoutes);
+app.use("/", requireAuth, engineersRoutes);
+app.use("/", requireAuth, jobsRoutes);
 
 // serve uploaded files (dev)
 app.use("/uploads", express.static("uploads"));
