@@ -1,0 +1,132 @@
+FLUTTER CALENDAR/JOBS INTEGRATION GUIDE
+=======================================
+
+PUBSPEC DEPENDENCIES (add to pubspec.yaml):
+-------------------------------------------
+dependencies:
+  table_calendar: ^3.1.2
+  syncfusion_flutter_calendar: ^27.1.58
+  firebase_messaging: ^15.0.0
+  flutter_local_notifications: ^17.2.1
+
+
+FOLDER STRUCTURE:
+-----------------
+lib/
+  data/
+    services/
+      job_service.dart          -- Jobs API service (CRUD + reschedule + live board)
+      engineer_service.dart     -- Engineers API service (CRUD)
+  presentation/
+    screens/
+      jobs/
+        job_scheduler_screen.dart           -- SfCalendar week view with drag/drop
+        today_jobs_screen.dart              -- Daily planner with status colours
+        job_form_screen.dart                -- Create/edit form with reminders
+        dispatch_live_board_screen.dart     -- Engineer live board (free/busy)
+  core/
+    auth/
+      role_permissions.dart    -- Role-based menu visibility
+
+
+ROUTE WIRING (add to your router/onGenerateRoute):
+---------------------------------------------------
+
+Add imports:
+  import 'presentation/screens/jobs/job_scheduler_screen.dart';
+  import 'presentation/screens/jobs/today_jobs_screen.dart';
+  import 'presentation/screens/jobs/job_form_screen.dart';
+  import 'presentation/screens/jobs/dispatch_live_board_screen.dart';
+
+Add routes:
+  if (settings.name == "/jobs/calendar") {
+    return MaterialPageRoute(
+      builder: (_) => const JobSchedulerScreen(),
+    );
+  }
+
+  if (settings.name == "/jobs/today") {
+    return MaterialPageRoute(
+      builder: (_) => const TodayJobsScreen(),
+    );
+  }
+
+  if (settings.name == "/jobs/new") {
+    return MaterialPageRoute(
+      builder: (_) => const JobFormScreen(),
+    );
+  }
+
+  if (settings.name == "/dispatch/live-board") {
+    return MaterialPageRoute(
+      builder: (_) => const DispatchLiveBoardScreen(),
+    );
+  }
+
+
+MENU BUTTONS (add to your drawer/menu):
+----------------------------------------
+
+import 'core/auth/role_permissions.dart';
+
+// Jobs menu (visible to owner, admin, engineer)
+if (RolePermissions.canAccessJobs(userRole))
+  ListTile(
+    leading: const Icon(Icons.calendar_month),
+    title: const Text("Jobs"),
+    onTap: () {
+      Navigator.pushNamed(context, "/jobs/calendar");
+    },
+  );
+
+// Today's jobs
+if (RolePermissions.canAccessJobs(userRole))
+  ListTile(
+    leading: const Icon(Icons.today),
+    title: const Text("Today's Jobs"),
+    onTap: () {
+      Navigator.pushNamed(context, "/jobs/today");
+    },
+  );
+
+// Live board
+ListTile(
+  leading: const Icon(Icons.dashboard_customize),
+  title: const Text("Engineer Live Board"),
+  onTap: () => Navigator.pushNamed(context, "/dispatch/live-board"),
+);
+
+// Reports (visible to owner, admin, accountant)
+if (RolePermissions.canAccessAccounting(userRole))
+  ListTile(
+    leading: const Icon(Icons.assessment),
+    title: const Text("Reports"),
+    onTap: () {
+      Navigator.pushNamed(context, "/reports");
+    },
+  );
+
+// Team (visible to owner, admin)
+if (RolePermissions.canManageTeam(userRole))
+  ListTile(
+    leading: const Icon(Icons.group),
+    title: const Text("Team"),
+    onTap: () {
+      Navigator.pushNamed(context, "/team");
+    },
+  );
+
+
+PERMISSIONS MATRIX:
+-------------------
+Feature         Owner  Admin  Engineer  Accountant
+Dashboard       Yes    Yes    Limited   Yes
+Jobs/Calendar   Yes    Yes    Yes       View only
+Customers       Yes    Yes    View      Yes
+Invoices        Yes    Yes    No        Yes
+Bills           Yes    Yes    No        Yes
+Banking         Yes    No     No        Yes
+Payroll         Yes    Yes    No        No
+VAT/HMRC        Yes    No     No        Yes
+Reports         Yes    Yes    No        Yes
+Team settings   Yes    Yes    No        No
