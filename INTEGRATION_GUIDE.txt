@@ -8,6 +8,7 @@ dependencies:
   syncfusion_flutter_calendar: ^27.1.58
   firebase_messaging: ^15.0.0
   flutter_local_notifications: ^17.2.1
+  intl: ^0.19.0
 
 
 FOLDER STRUCTURE:
@@ -17,8 +18,12 @@ lib/
     services/
       job_service.dart          -- Jobs API service (CRUD + reschedule + live board)
       engineer_service.dart     -- Engineers API service (CRUD)
+      master_data_service.dart  -- Customer data service
+      vat_service.dart          -- VAT return + HMRC submission service
   presentation/
     screens/
+      vat/
+        vat_return_screen.dart             -- VAT return view + HMRC declaration submit
       jobs/
         job_scheduler_screen.dart           -- SfCalendar week view with drag/drop
         today_jobs_screen.dart              -- Daily planner with status colours
@@ -41,6 +46,7 @@ Add imports:
   import 'presentation/screens/jobs/dispatch_live_board_screen.dart';
   import 'presentation/screens/jobs/engineer_management_screen.dart';
   import 'presentation/screens/jobs/team_management_screen.dart';
+  import 'presentation/screens/vat/vat_return_screen.dart';
 
 Add routes:
   if (settings.name == "/jobs/calendar") {
@@ -76,6 +82,12 @@ Add routes:
   if (settings.name == "/team") {
     return MaterialPageRoute(
       builder: (_) => const TeamManagementScreen(),
+    );
+  }
+
+  if (settings.name == "/vat/return") {
+    return MaterialPageRoute(
+      builder: (_) => const VatReturnScreen(),
     );
   }
 
@@ -129,6 +141,16 @@ if (RolePermissions.canAccessAccounting(userRole))
     title: const Text("Reports"),
     onTap: () {
       Navigator.pushNamed(context, "/reports");
+    },
+  );
+
+// VAT / HMRC (visible to owner, accountant)
+if (RolePermissions.canSubmitVat(userRole))
+  ListTile(
+    leading: const Icon(Icons.receipt_long),
+    title: const Text("VAT Return"),
+    onTap: () {
+      Navigator.pushNamed(context, "/vat/return");
     },
   );
 
