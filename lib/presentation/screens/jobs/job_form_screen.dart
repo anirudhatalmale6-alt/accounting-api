@@ -349,6 +349,9 @@ class _JobFormScreenState extends State<JobFormScreen> {
               ),
               items: const [
                 DropdownMenuItem(value: "scheduled", child: Text("Scheduled")),
+                DropdownMenuItem(value: "confirmed", child: Text("Confirmed")),
+                DropdownMenuItem(value: "on_the_way", child: Text("On the Way")),
+                DropdownMenuItem(value: "arrived", child: Text("Arrived")),
                 DropdownMenuItem(value: "in_progress", child: Text("In Progress")),
                 DropdownMenuItem(value: "completed", child: Text("Completed")),
                 DropdownMenuItem(value: "cancelled", child: Text("Cancelled")),

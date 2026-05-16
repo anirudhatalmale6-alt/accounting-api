@@ -24,6 +24,8 @@ lib/
         today_jobs_screen.dart              -- Daily planner with status colours
         job_form_screen.dart                -- Create/edit form with reminders
         dispatch_live_board_screen.dart     -- Engineer live board (free/busy)
+        engineer_management_screen.dart     -- Engineer CRUD with colour picker
+        team_management_screen.dart         -- Team invite/edit with roles
   core/
     auth/
       role_permissions.dart    -- Role-based menu visibility
@@ -37,6 +39,8 @@ Add imports:
   import 'presentation/screens/jobs/today_jobs_screen.dart';
   import 'presentation/screens/jobs/job_form_screen.dart';
   import 'presentation/screens/jobs/dispatch_live_board_screen.dart';
+  import 'presentation/screens/jobs/engineer_management_screen.dart';
+  import 'presentation/screens/jobs/team_management_screen.dart';
 
 Add routes:
   if (settings.name == "/jobs/calendar") {
@@ -63,6 +67,18 @@ Add routes:
     );
   }
 
+  if (settings.name == "/engineers") {
+    return MaterialPageRoute(
+      builder: (_) => const EngineerManagementScreen(),
+    );
+  }
+
+  if (settings.name == "/team") {
+    return MaterialPageRoute(
+      builder: (_) => const TeamManagementScreen(),
+    );
+  }
+
 
 MENU BUTTONS (add to your drawer/menu):
 ----------------------------------------
@@ -86,6 +102,16 @@ if (RolePermissions.canAccessJobs(userRole))
     title: const Text("Today's Jobs"),
     onTap: () {
       Navigator.pushNamed(context, "/jobs/today");
+    },
+  );
+
+// Engineers (visible to owner, admin)
+if (RolePermissions.canManageTeam(userRole))
+  ListTile(
+    leading: const Icon(Icons.engineering),
+    title: const Text("Engineers"),
+    onTap: () {
+      Navigator.pushNamed(context, "/engineers");
     },
   );
 
