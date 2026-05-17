@@ -52,9 +52,9 @@ router.post("/invite", async (req, res, next) => {
 
     // Get company name for the email
     const companyResult = await db.query(
-      `SELECT name FROM companies WHERE id=$1`, [companyId]
+      `SELECT business_name, name FROM companies WHERE id=$1`, [companyId]
     );
-    const companyName = companyResult.rows[0]?.name || "a company";
+    const companyName = companyResult.rows[0]?.business_name || companyResult.rows[0]?.name || "a company";
 
     // Try to send invitation email
     let emailSent = false;
