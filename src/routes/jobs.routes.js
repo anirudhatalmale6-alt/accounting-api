@@ -1,7 +1,90 @@
 const express = require("express");
 const db = require("../db");
+const nodemailer = require("nodemailer");
 
 const router = express.Router();
+
+const statusMessages = {
+  on_the_way: {
+    subject: "Your engineer is on the way",
+    message: "is now on the way to your location",
+  },
+  arrived: {
+    subject: "Your engineer has arrived",
+    message: "has arrived at your location",
+  },
+  in_progress: {
+    subject: "Work has started on your job",
+    message: "has started work on your job",
+  },
+  completed: {
+    subject: "Your job is complete",
+    message: "has completed your job",
+  },
+};
+
+async function notifyCustomer(companyId, job, newStatus) {
+  if (!statusMessages[newStatus]) return;
+  if (!job.customer_id) return;
+  if (!process.env.SMTP_HOST) return;
+
+  try {
+    const customer = await db.query(
+      `SELECT name, email, phone FROM customers WHERE id=$1 AND company_id=$2`,
+      [job.customer_id, companyId]
+    );
+    if (customer.rowCount === 0 || !customer.rows[0].email) return;
+
+    const cust = customer.rows[0];
+
+    const company = await db.query(
+      `SELECT business_name, name FROM companies WHERE id=$1`, [companyId]
+    );
+    const companyName = company.rows[0]?.business_name || company.rows[0]?.name || "Our Company";
+
+    const engineer = job.engineer_id
+      ? await db.query(`SELECT name FROM engineers WHERE id=$1`, [job.engineer_id])
+      : null;
+    const engineerName = engineer?.rows[0]?.name || "Your engineer";
+
+    const { subject, message } = statusMessages[newStatus];
+    const jobTitle = job.title || "your scheduled job";
+    const jobAddress = job.address ? `\nJob address: ${job.address}` : "";
+
+    const smtpConfig = {
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: process.env.SMTP_SECURE === "true",
+    };
+    if (process.env.SMTP_USER) {
+      smtpConfig.auth = {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      };
+    }
+    const transporter = nodemailer.createTransport(smtpConfig);
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: cust.email,
+      subject: `${companyName} - ${subject}`,
+      text: `Hi ${cust.name || "there"},\n\n${engineerName} ${message}.\n\nJob: ${jobTitle}${jobAddress}\n\nThank you,\n${companyName}`,
+      html: `<h2>${companyName}</h2>
+        <p>Hi ${cust.name || "there"},</p>
+        <p><strong>${engineerName}</strong> ${message}.</p>
+        <p><strong>Job:</strong> ${jobTitle}${job.address ? `<br><strong>Address:</strong> ${job.address}` : ""}</p>
+        <p>Thank you,<br>${companyName}</p>`,
+    });
+
+    await db.query(
+      `INSERT INTO email_logs (company_id, recipient_email, subject, status)
+       VALUES ($1, $2, $3, 'sent')`,
+      [companyId, cust.email, `${companyName} - ${subject}`]
+    );
+  } catch (err) {
+    console.warn("Failed to send job status email:", err.message);
+  }
+}
 
 router.post("/jobs", async (req, res, next) => {
   try {
@@ -144,6 +227,13 @@ router.put("/jobs/:id", async (req, res, next) => {
       address, notes, recurrence,
     } = req.body;
 
+    // Get old status before updating
+    const oldJob = await db.query(
+      `SELECT status FROM jobs WHERE id=$1 AND company_id=$2`,
+      [id, companyId]
+    );
+    const oldStatus = oldJob.rows[0]?.status;
+
     const result = await db.query(
       `UPDATE jobs SET
         customer_id=$1, engineer_id=$2, title=$3, description=$4,
@@ -167,7 +257,15 @@ router.put("/jobs/:id", async (req, res, next) => {
         companyId,
       ]
     );
-    res.json({ job: result.rows[0] });
+
+    const updatedJob = result.rows[0];
+
+    // Notify customer if status changed
+    if (updatedJob && status && status !== oldStatus) {
+      notifyCustomer(companyId, updatedJob, status).catch(() => {});
+    }
+
+    res.json({ job: updatedJob });
   } catch (e) { next(e); }
 });
 
