@@ -108,6 +108,32 @@ router.get("/jobs/upcoming", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+router.get("/jobs/:id", async (req, res, next) => {
+  try {
+    const companyId = req.user.companyId;
+    const id = Number(req.params.id);
+
+    const result = await db.query(
+      `SELECT
+        j.*,
+        c.name AS customer_name,
+        e.name AS engineer_name,
+        e.colour AS engineer_colour
+       FROM jobs j
+       LEFT JOIN customers c ON c.id = j.customer_id
+       LEFT JOIN engineers e ON e.id = j.engineer_id
+       WHERE j.id=$1 AND j.company_id=$2`,
+      [id, companyId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    res.json({ job: result.rows[0] });
+  } catch (e) { next(e); }
+});
+
 router.put("/jobs/:id", async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
