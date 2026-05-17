@@ -77,9 +77,9 @@ async function notifyCustomer(companyId, job, newStatus) {
     });
 
     await db.query(
-      `INSERT INTO email_logs (company_id, recipient_email, subject, status)
-       VALUES ($1, $2, $3, 'sent')`,
-      [companyId, cust.email, `${companyName} - ${subject}`]
+      `INSERT INTO email_logs (company_id, to_email, subject, body, status)
+       VALUES ($1, $2, $3, $4, 'SENT')`,
+      [companyId, cust.email, `${companyName} - ${subject}`, `${engineerName} ${message}`]
     );
   } catch (err) {
     console.warn("Failed to send job status email:", err.message);
