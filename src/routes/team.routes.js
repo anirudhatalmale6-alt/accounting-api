@@ -99,6 +99,20 @@ router.post("/invite", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// GET /team - List team members (alias for /team/members)
+router.get("/", async (req, res, next) => {
+  try {
+    const companyId = Number(req.user.companyId);
+    const result = await db.query(
+      `SELECT u.id, u.email, u.role, u.created_at,
+              CASE WHEN u.id = $2 THEN false ELSE true END AS is_active
+       FROM users u WHERE u.company_id=$1 ORDER BY u.created_at`,
+      [companyId, req.user.userId]
+    );
+    res.json({ members: result.rows });
+  } catch (e) { next(e); }
+});
+
 // GET /team/members - List team members for the company
 router.get("/members", async (req, res, next) => {
   try {
@@ -125,6 +139,37 @@ router.get("/invitations", async (req, res, next) => {
     );
 
     res.json({ invitations: result.rows });
+  } catch (e) { next(e); }
+});
+
+// PUT /team/:id - Update a team member's role (owner only)
+router.put("/:id", async (req, res, next) => {
+  try {
+    const companyId = Number(req.user.companyId);
+    const memberId = Number(req.params.id);
+    const { role, isActive } = req.body;
+
+    if (req.user.role !== "owner" && req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only the company owner or admin can update team members" });
+    }
+
+    if (memberId === req.user.userId) {
+      return res.status(400).json({ error: "You cannot change your own role" });
+    }
+
+    const validRoles = ["owner", "admin", "engineer", "accountant"];
+    if (role && !validRoles.includes(role)) {
+      return res.status(400).json({ error: "Invalid role" });
+    }
+
+    if (role) {
+      await db.query(
+        `UPDATE users SET role=$1 WHERE id=$2 AND company_id=$3`,
+        [role, memberId, companyId]
+      );
+    }
+
+    res.json({ updated: true });
   } catch (e) { next(e); }
 });
 

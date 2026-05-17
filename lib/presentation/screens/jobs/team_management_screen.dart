@@ -10,12 +10,12 @@ class TeamService {
   }
 
   Future<void> inviteMember({
-    required int userId,
+    required String email,
     required String role,
   }) async {
     final api = await ApiClient.create();
     await api.dio.post("/team/invite", data: {
-      "userId": userId,
+      "email": email,
       "role": role,
     });
   }
@@ -100,7 +100,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
   }
 
   Future<void> _showInviteDialog() async {
-    final userIdCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
     String selectedRole = "engineer";
 
     final result = await showDialog<bool>(
@@ -114,12 +114,12 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(
-                    controller: userIdCtrl,
+                    controller: emailCtrl,
                     decoration: const InputDecoration(
-                      labelText: "User ID *",
+                      labelText: "Email *",
                       border: OutlineInputBorder(),
                     ),
-                    keyboardType: TextInputType.number,
+                    keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
@@ -147,10 +147,10 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    if (userIdCtrl.text.trim().isEmpty) return;
+                    if (emailCtrl.text.trim().isEmpty) return;
                     try {
                       await _svc.inviteMember(
-                        userId: int.parse(userIdCtrl.text.trim()),
+                        email: emailCtrl.text.trim(),
                         role: selectedRole,
                       );
                       Navigator.pop(ctx, true);
