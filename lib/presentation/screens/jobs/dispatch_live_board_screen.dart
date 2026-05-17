@@ -129,9 +129,9 @@ class _DispatchLiveBoardScreenState extends State<DispatchLiveBoardScreen> {
                   ),
                   const SizedBox(height: 12),
                   ...board.map((row) {
-                    final engineer = row["engineer"];
-                    final status = row["status"] ?? "free";
-                    final colour = parseColour(engineer["colour"] ?? "#2563EB");
+                    final engineer = row["engineer"] ?? {};
+                    final status = row["status"]?.toString() ?? "free";
+                    final colour = parseColour(engineer["colour"]?.toString() ?? "#2563EB");
 
                     return Card(
                       child: Padding(
@@ -144,8 +144,7 @@ class _DispatchLiveBoardScreenState extends State<DispatchLiveBoardScreen> {
                                 CircleAvatar(
                                   backgroundColor: colour,
                                   child: Text(
-                                    engineer["name"]
-                                        .toString()
+                                    (engineer["name"]?.toString() ?? "E")
                                         .substring(0, 1)
                                         .toUpperCase(),
                                     style: const TextStyle(color: Colors.white),

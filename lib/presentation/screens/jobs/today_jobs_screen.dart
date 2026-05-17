@@ -26,7 +26,15 @@ class _TodayJobsScreenState
   }
 
   Future<void> load() async {
-    jobs = await _svc.getTodayJobs();
+    try {
+      jobs = await _svc.getTodayJobs();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to load today's jobs: $e")),
+        );
+      }
+    }
 
     if (mounted) {
       setState(() => loading = false);
@@ -86,7 +94,7 @@ class _TodayJobsScreenState
                           ),
                         ),
                         title:
-                            Text(job["title"]),
+                            Text(job["title"]?.toString() ?? "Untitled Job"),
                         subtitle: Text(
                           "${job["customer_name"] ?? ""}\n"
                           "${job["address"] ?? ""}",

@@ -58,25 +58,33 @@ class _JobFormScreenState extends State<JobFormScreen> {
   }
 
   Future<void> _init() async {
-    customers = await _masterDataService.getCustomers();
-    engineers = await _engineerService.getEngineers();
+    try {
+      customers = await _masterDataService.getCustomers();
+      engineers = await _engineerService.getEngineers();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to load data: $e")),
+        );
+      }
+    }
 
     if (widget.job != null) {
       final j = widget.job!;
 
-      _title.text = j["title"] ?? "";
-      _description.text = j["description"] ?? "";
-      _jobType.text = j["job_type"] ?? "";
-      _address.text = j["address"] ?? "";
-      _notes.text = j["notes"] ?? "";
+      _title.text = j["title"]?.toString() ?? "";
+      _description.text = j["description"]?.toString() ?? "";
+      _jobType.text = j["job_type"]?.toString() ?? "";
+      _address.text = j["address"]?.toString() ?? "";
+      _notes.text = j["notes"]?.toString() ?? "";
 
-      status = j["status"] ?? "scheduled";
-      recurrence = j["recurrence"] ?? "none";
+      status = j["status"]?.toString() ?? "scheduled";
+      recurrence = j["recurrence"]?.toString() ?? "none";
 
-      startTime = DateTime.parse(j["start_time"]);
+      startTime = DateTime.tryParse(j["start_time"]?.toString() ?? "") ?? DateTime.now();
 
       endTime = j["end_time"] != null
-          ? DateTime.parse(j["end_time"])
+          ? (DateTime.tryParse(j["end_time"].toString()) ?? startTime.add(const Duration(hours: 1)))
           : startTime.add(const Duration(hours: 1));
 
       if (j["customer_id"] != null) {
@@ -84,7 +92,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
               (c) => c["id"] == j["customer_id"],
               orElse: () => {},
             );
-        if (selectedCustomer!.isEmpty) selectedCustomer = null;
+        if (selectedCustomer != null && selectedCustomer!.isEmpty) selectedCustomer = null;
       }
 
       if (j["engineer_id"] != null) {
@@ -92,12 +100,11 @@ class _JobFormScreenState extends State<JobFormScreen> {
               (e) => e["id"] == j["engineer_id"],
               orElse: () => {},
             );
-        if (selectedEngineer!.isEmpty) selectedEngineer = null;
+        if (selectedEngineer != null && selectedEngineer!.isEmpty) selectedEngineer = null;
       }
 
-      // Load reminder fields
       if (j["reminder_at"] != null) {
-        reminderAt = DateTime.parse(j["reminder_at"]);
+        reminderAt = DateTime.tryParse(j["reminder_at"].toString());
       }
       remindEngineer = j["remind_engineer"] ?? true;
       remindCustomer = j["remind_customer"] ?? false;
@@ -106,7 +113,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
       startTime = DateTime(d.year, d.month, d.day, 9);
       endTime = startTime.add(const Duration(hours: 1));
 
-      // Smart default: remind 24 hours before
       reminderAt = startTime.subtract(const Duration(hours: 24));
     }
 

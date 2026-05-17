@@ -29,26 +29,34 @@ class _JobSchedulerScreenState
   Future<void> load() async {
     setState(() => loading = true);
 
-    final now = DateTime.now();
+    try {
+      final now = DateTime.now();
 
-    final from = DateTime(
-      now.year,
-      now.month,
-      1,
-    ).toIso8601String();
+      final from = DateTime(
+        now.year,
+        now.month,
+        1,
+      ).toIso8601String();
 
-    final to = DateTime(
-      now.year,
-      now.month + 1,
-      0,
-      23,
-      59,
-    ).toIso8601String();
+      final to = DateTime(
+        now.year,
+        now.month + 1,
+        0,
+        23,
+        59,
+      ).toIso8601String();
 
-    jobs = await _svc.getJobs(
-      dateFrom: from,
-      dateTo: to,
-    );
+      jobs = await _svc.getJobs(
+        dateFrom: from,
+        dateTo: to,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to load jobs: $e")),
+        );
+      }
+    }
 
     if (mounted) {
       setState(() => loading = false);
@@ -89,25 +97,24 @@ class _JobSchedulerScreenState
 
   @override
   Widget build(BuildContext context) {
-    final appointments = jobs.map((j) {
-      final start =
-          DateTime.parse(j["start_time"]);
+    final appointments = <Appointment>[];
+    for (final j in jobs) {
+      try {
+        final start = DateTime.tryParse(j["start_time"] ?? "") ?? DateTime.now();
+        final end = j["end_time"] != null
+            ? (DateTime.tryParse(j["end_time"]) ?? start.add(const Duration(hours: 1)))
+            : start.add(const Duration(hours: 1));
 
-      final end = j["end_time"] != null
-          ? DateTime.parse(j["end_time"])
-          : start.add(const Duration(hours: 1));
-
-      return Appointment(
-        id: j["id"],
-        startTime: start,
-        endTime: end,
-        subject: j["title"] ?? "Job",
-        notes: j["customer_name"] ?? "",
-        color: parseColour(
-          j["engineer_colour"] ?? "#2563EB",
-        ),
-      );
-    }).toList();
+        appointments.add(Appointment(
+          id: j["id"],
+          startTime: start,
+          endTime: end,
+          subject: j["title"]?.toString() ?? "Job",
+          notes: j["customer_name"]?.toString() ?? "",
+          color: parseColour(j["engineer_colour"]?.toString() ?? "#2563EB"),
+        ));
+      } catch (_) {}
+    }
 
     return Scaffold(
       appBar: AppBar(
