@@ -142,6 +142,28 @@ class _JobFormScreenState extends State<JobFormScreen> {
     });
   }
 
+  Future<void> _pickEnd() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: endTime,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+    );
+
+    if (date == null) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(endTime),
+    );
+
+    if (time == null) return;
+
+    setState(() {
+      endTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    });
+  }
+
   Future<void> pickReminder() async {
     final initial = reminderAt ?? startTime.subtract(const Duration(hours: 24));
 
@@ -324,6 +346,20 @@ class _JobFormScreenState extends State<JobFormScreen> {
               ),
               trailing: const Icon(Icons.edit),
               onTap: _pickStart,
+            ),
+
+            // End time
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.access_time_filled),
+              title: const Text("End Time"),
+              subtitle: Text(
+                "${endTime.day}/${endTime.month}/${endTime.year} "
+                "${endTime.hour.toString().padLeft(2, '0')}:"
+                "${endTime.minute.toString().padLeft(2, '0')}",
+              ),
+              trailing: const Icon(Icons.edit),
+              onTap: _pickEnd,
             ),
             const SizedBox(height: 12),
 
