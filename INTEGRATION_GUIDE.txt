@@ -203,6 +203,40 @@ API Endpoints:
   GET  /chat/contacts        - List team members for DM with last message preview
 
 
+CSV IMPORT (Customers & Suppliers):
+------------------------------------
+
+Add import:
+  import 'presentation/screens/import/csv_import_screen.dart';
+
+Add routes:
+  if (settings.name == "/customers/import") {
+    return MaterialPageRoute(
+      builder: (_) => const CsvImportScreen(type: "customers"),
+    );
+  }
+  if (settings.name == "/suppliers/import") {
+    return MaterialPageRoute(
+      builder: (_) => const CsvImportScreen(type: "suppliers"),
+    );
+  }
+
+Add import buttons on Customers/Suppliers list screens:
+  IconButton(
+    icon: const Icon(Icons.upload_file),
+    onPressed: () => Navigator.pushNamed(context, "/customers/import"),
+  )
+
+Dependency: add file_picker to pubspec.yaml:
+  file_picker: ^8.0.0
+
+API Endpoints:
+  POST /customers/import  - body: {"rows": [{"name":"...", "email":"...", ...}]}
+  POST /suppliers/import  - body: {"rows": [{"name":"...", "email":"...", ...}]}
+
+CSV columns: name (required), email, phone, address, vat_number, contact_person
+
+
 PERMISSIONS MATRIX:
 -------------------
 Feature         Owner  Admin  Engineer  Accountant

@@ -64,6 +64,58 @@ router.put("/:id", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// POST /suppliers/import - Bulk import from CSV
+router.post("/import", async (req, res, next) => {
+  try {
+    const companyId = Number(req.user.companyId);
+    const { rows } = req.body;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ error: "No rows provided" });
+    }
+
+    if (rows.length > 500) {
+      return res.status(400).json({ error: "Maximum 500 rows per import" });
+    }
+
+    let imported = 0;
+    let skipped = 0;
+    const errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const name = (row.name || "").trim();
+      if (!name) {
+        skipped++;
+        errors.push({ row: i + 1, error: "Name is required" });
+        continue;
+      }
+
+      try {
+        await db.query(
+          `INSERT INTO suppliers (company_id, name, email, phone, address, vat_number, contact_person)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [
+            companyId,
+            name,
+            (row.email || "").trim() || null,
+            (row.phone || "").trim() || null,
+            (row.address || "").trim() || null,
+            (row.vat_number || row.vatNumber || "").trim() || null,
+            (row.contact_person || row.contactPerson || "").trim() || null,
+          ]
+        );
+        imported++;
+      } catch (e) {
+        skipped++;
+        errors.push({ row: i + 1, error: e.message });
+      }
+    }
+
+    res.json({ imported, skipped, total: rows.length, errors: errors.slice(0, 10) });
+  } catch (e) { next(e); }
+});
+
 router.delete("/:id", async (req, res, next) => {
   try {
     const companyId = Number(req.user.companyId);
