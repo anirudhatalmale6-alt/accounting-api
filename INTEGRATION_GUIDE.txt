@@ -203,6 +203,38 @@ API Endpoints:
   GET  /chat/contacts        - List team members for DM with last message preview
 
 
+ACCEPT INVITATION (Accountant/Team Onboarding):
+-------------------------------------------------
+
+Add import:
+  import 'presentation/screens/auth/accept_invite_screen.dart';
+
+Add route:
+  if (settings.name == "/auth/accept-invite") {
+    return MaterialPageRoute(
+      builder: (_) => const AcceptInviteScreen(),
+    );
+  }
+
+Add a button on the Login screen (below the login button):
+  TextButton(
+    onPressed: () => Navigator.pushNamed(context, "/auth/accept-invite"),
+    child: const Text("Have an invitation code? Join your team"),
+  )
+
+Flow:
+  1. Owner invites accountant via Team screen (POST /team/invite)
+  2. Accountant receives email with invitation code
+  3. Accountant opens app, taps "Have an invitation code?" on login screen
+  4. Enters email + code + password -> POST /auth/accept-invite
+  5. System creates account, returns JWT token, auto-logs in
+  6. Accountant lands on /home with their role-based permissions
+
+API Endpoints:
+  POST /auth/accept-invite       - body: {"email":"...", "inviteCode":"...", "password":"..."}
+  GET  /auth/pending-invites     - query: ?email=xxx (check for pending invites)
+
+
 CSV IMPORT (Customers & Suppliers):
 ------------------------------------
 
