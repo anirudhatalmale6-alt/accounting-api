@@ -203,11 +203,14 @@ router.get("/dispatch/live-board", async (req, res, next) => {
     );
 
     const now = new Date();
+    const activeStatuses = ["on_the_way", "arrived", "in_progress", "confirmed"];
     const board = engineers.rows.map((engineer) => {
       const engineerJobs = jobs.rows.filter(
         (j) => j.engineer_id === engineer.id
       );
+      // Busy if any job has an active status OR falls within current time window
       const currentJob = engineerJobs.find((j) => {
+        if (activeStatuses.includes(j.status)) return true;
         const start = new Date(j.start_time);
         const end = j.end_time
           ? new Date(j.end_time)
@@ -215,8 +218,9 @@ router.get("/dispatch/live-board", async (req, res, next) => {
         return start <= now && end >= now;
       });
       const nextJob = engineerJobs.find((j) => {
+        if (j === currentJob) return false;
         const start = new Date(j.start_time);
-        return start > now;
+        return start > now || j.status === "scheduled";
       });
       return {
         engineer,
