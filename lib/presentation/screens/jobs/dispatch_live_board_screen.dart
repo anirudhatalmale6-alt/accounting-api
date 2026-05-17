@@ -49,7 +49,8 @@ class _DispatchLiveBoardScreenState extends State<DispatchLiveBoardScreen> {
 
   String formatTime(dynamic value) {
     if (value == null) return "";
-    final dt = DateTime.parse(value.toString());
+    final dt = DateTime.tryParse(value.toString());
+    if (dt == null) return "";
     return "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
   }
 
@@ -129,64 +130,70 @@ class _DispatchLiveBoardScreenState extends State<DispatchLiveBoardScreen> {
                   ),
                   const SizedBox(height: 12),
                   ...board.map((row) {
-                    final engineer = row["engineer"] ?? {};
-                    final status = row["status"]?.toString() ?? "free";
-                    final colour = parseColour(engineer["colour"]?.toString() ?? "#2563EB");
+                    try {
+                      final engineer = row["engineer"] ?? {};
+                      final status = row["status"]?.toString() ?? "free";
+                      final colourHex = engineer["colour"]?.toString() ?? "#2563EB";
+                      final colour = parseColour(colourHex);
+                      final name = engineer["name"]?.toString() ?? "Engineer";
 
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  backgroundColor: colour,
-                                  child: Text(
-                                    (engineer["name"]?.toString() ?? "E")
-                                        .substring(0, 1)
-                                        .toUpperCase(),
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    engineer["name"] ?? "Engineer",
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
+                      return Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor: colour,
+                                    child: Text(
+                                      name.isNotEmpty
+                                          ? name.substring(0, 1).toUpperCase()
+                                          : "E",
+                                      style: const TextStyle(color: Colors.white),
                                     ),
                                   ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: statusColor(status).withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    status.toString().toUpperCase(),
-                                    style: TextStyle(
-                                      color: statusColor(status),
-                                      fontWeight: FontWeight.bold,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            jobLine("Current", row["currentJob"]),
-                            const SizedBox(height: 8),
-                            jobLine("Next", row["nextJob"]),
-                          ],
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: statusColor(status).withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      status.toUpperCase(),
+                                      style: TextStyle(
+                                        color: statusColor(status),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              jobLine("Current", row["currentJob"]),
+                              const SizedBox(height: 8),
+                              jobLine("Next", row["nextJob"]),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    } catch (_) {
+                      return const SizedBox.shrink();
+                    }
                   }),
                 ],
               ),
