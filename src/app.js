@@ -32,6 +32,7 @@ const adminRoutes = require("./routes/admin.routes");
 const engineersRoutes = require("./routes/engineers.routes");
 const jobsRoutes = require("./routes/jobs.routes");
 const remindersRoutes = require("./routes/reminders.routes");
+const companyRoutes = require("./routes/company.routes");
 const { requireAuth } = require("./middleware/auth");
 
 const app = express();
@@ -120,6 +121,7 @@ app.use("/hmrc", requireAuth, hmrcRoutes);
 app.use("/team", requireAuth, teamRoutes);
 app.use("/cis", requireAuth, cisRoutes);
 app.use("/admin", requireAuth, adminRoutes);
+app.use("/company", requireAuth, companyRoutes);
 app.use("/", requireAuth, engineersRoutes);
 app.use("/", requireAuth, jobsRoutes);
 app.use("/", requireAuth, remindersRoutes);

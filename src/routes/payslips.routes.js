@@ -32,7 +32,7 @@ router.get("/:payslipId/pdf", async (req, res, next) => {
 
     // Get company info
     const company = await db.query(`SELECT * FROM companies WHERE id=$1`, [companyId]);
-    const companyName = company.rows[0]?.name || "My Company";
+    const companyName = company.rows[0]?.business_name || company.rows[0]?.name || "My Company";
     const symbol = company.rows[0]?.currency_symbol || "£";
 
     // Generate PDF

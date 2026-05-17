@@ -22,7 +22,7 @@ async function generateInvoicePdfBuffer(companyId, invoiceId) {
   );
 
   const company = await db.query(`SELECT * FROM companies WHERE id=$1`, [companyId]);
-  const companyName = company.rows[0]?.name || "My Company";
+  const companyName = company.rows[0]?.business_name || company.rows[0]?.name || "My Company";
   const symbol = company.rows[0]?.currency_symbol || "£";
 
   return new Promise((resolve) => {
@@ -92,7 +92,7 @@ async function generateBillPdfBuffer(companyId, billId) {
   );
 
   const company = await db.query(`SELECT * FROM companies WHERE id=$1`, [companyId]);
-  const companyName = company.rows[0]?.name || "My Company";
+  const companyName = company.rows[0]?.business_name || company.rows[0]?.name || "My Company";
   const symbol = company.rows[0]?.currency_symbol || "£";
 
   return new Promise((resolve) => {
@@ -147,7 +147,7 @@ async function generateVatSummaryPdfBuffer(companyId, dateFrom, dateTo) {
   const PDFDocument = require("pdfkit");
 
   const company = await db.query(`SELECT * FROM companies WHERE id=$1`, [companyId]);
-  const companyName = company.rows[0]?.name || "My Company";
+  const companyName = company.rows[0]?.business_name || company.rows[0]?.name || "My Company";
   const symbol = "£";
 
   // VAT on sales (output VAT)
@@ -357,8 +357,10 @@ router.post("/invoices/:invoiceId/send", async (req, res, next) => {
       return res.status(400).json({ error: "No recipient email. Provide toEmail in body or set customer email." });
     }
 
-    const subject = `Invoice ${invoice.invoice_number} from ${(await db.query('SELECT name FROM companies WHERE id=$1', [companyId])).rows[0]?.name || 'My Company'}`;
-    const body = `Hi ${invoice.customer_name || ''},\n\nPlease find our invoice ${invoice.invoice_number} attached.\n\nThanks,\n${ (await db.query('SELECT name FROM companies WHERE id=$1', [companyId])).rows[0]?.name || 'My Company'}`;
+    const compRow = (await db.query('SELECT business_name, name FROM companies WHERE id=$1', [companyId])).rows[0];
+    const senderName = compRow?.business_name || compRow?.name || 'My Company';
+    const subject = `Invoice ${invoice.invoice_number} from ${senderName}`;
+    const body = `Hi ${invoice.customer_name || ''},\n\nPlease find our invoice ${invoice.invoice_number} attached.\n\nThanks,\n${senderName}`;
 
     // Try to send email via nodemailer if SMTP is configured
     if (process.env.SMTP_HOST) {
@@ -434,7 +436,7 @@ router.post("/bills/:billId/send", async (req, res, next) => {
       return res.status(400).json({ error: "No recipient email. Provide toEmail in body or set supplier email." });
     }
 
-    const companyName = (await db.query('SELECT name FROM companies WHERE id=$1', [companyId])).rows[0]?.name || 'My Company';
+    const companyName = (await db.query('SELECT business_name, name FROM companies WHERE id=$1', [companyId])).rows[0]?.business_name || (await db.query('SELECT name FROM companies WHERE id=$1', [companyId])).rows[0]?.name || 'My Company';
     const subject = `Bill ${bill.bill_number} from ${companyName}`;
     const body = `Hi ${bill.supplier_name || ''},\n\nPlease find our bill ${bill.bill_number} attached.\n\nThanks,\n${companyName}`;
 
@@ -507,7 +509,7 @@ router.post("/vat-summary/send", async (req, res, next) => {
     }
 
     const buffer = await generateVatSummaryPdfBuffer(companyId, dateFrom, dateTo);
-    const companyName = (await db.query('SELECT name FROM companies WHERE id=$1', [companyId])).rows[0]?.name || 'My Company';
+    const companyName = (await db.query('SELECT business_name, name FROM companies WHERE id=$1', [companyId])).rows[0]?.business_name || (await db.query('SELECT name FROM companies WHERE id=$1', [companyId])).rows[0]?.name || 'My Company';
     const subject = `VAT Summary Report (${dateFrom} to ${dateTo}) - ${companyName}`;
     const body = `Hi,\n\nPlease find the VAT Summary Report for the period ${dateFrom} to ${dateTo} attached.\n\nThanks,\n${companyName}`;
     const filename = `VAT_Summary_${dateFrom}_to_${dateTo}.pdf`;
