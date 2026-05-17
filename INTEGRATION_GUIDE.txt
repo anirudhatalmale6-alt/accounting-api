@@ -165,6 +165,44 @@ if (RolePermissions.canManageTeam(userRole))
   );
 
 
+CHAT INTEGRATION:
+-----------------
+
+Add imports:
+  import 'presentation/screens/chat/chat_list_screen.dart';
+  import 'presentation/screens/chat/chat_conversation_screen.dart';
+
+Add route:
+  if (settings.name == "/chat") {
+    return MaterialPageRoute(
+      builder: (_) => const ChatListScreen(),
+    );
+  }
+
+Add menu item (all roles can access chat):
+  ListTile(
+    leading: const Icon(Icons.chat),
+    title: const Text("Chat"),
+    onTap: () {
+      Navigator.pushNamed(context, "/chat");
+    },
+  );
+
+IMPORTANT - save userId on login:
+  After successful login, save the user ID to SharedPreferences so the chat
+  screen can identify which messages are yours:
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt("userId", loginResponse["user"]["id"]);
+
+API Endpoints:
+  GET  /chat/group           - Group messages (paginated, ?before=id&limit=50)
+  POST /chat/group           - Send group message (body: {"message": "..."})
+  GET  /chat/direct/:userId  - Direct messages with user (paginated)
+  POST /chat/direct/:userId  - Send direct message (body: {"message": "..."})
+  GET  /chat/contacts        - List team members for DM with last message preview
+
+
 PERMISSIONS MATRIX:
 -------------------
 Feature         Owner  Admin  Engineer  Accountant
@@ -178,3 +216,4 @@ Payroll         Yes    Yes    No        No
 VAT/HMRC        Yes    No     No        Yes
 Reports         Yes    Yes    No        Yes
 Team settings   Yes    Yes    No        No
+Chat            Yes    Yes    Yes       Yes
