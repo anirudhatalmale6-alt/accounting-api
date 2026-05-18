@@ -1,7 +1,30 @@
 const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 const db = require("../db");
 
 const router = express.Router();
+
+const logoDir = path.join(__dirname, "../../uploads/logos");
+if (!fs.existsSync(logoDir)) fs.mkdirSync(logoDir, { recursive: true });
+
+const logoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, logoDir),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".png";
+      cb(null, `company_${req.user.companyId}_${Date.now()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error("Only image files are allowed"));
+  },
+});
 
 router.get("/", async (req, res, next) => {
   try {
@@ -22,14 +45,19 @@ router.get("/", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.put("/", async (req, res, next) => {
+router.put("/", logoUpload.single("logo"), async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
     const {
       name, businessName, address, phone, email, vrn,
-      companyReg, utr, website, logoUrl,
+      companyReg, utr, website,
       currencyCode, currencySymbol, defaultReminderHours,
     } = req.body;
+
+    let logoUrl = null;
+    if (req.file) {
+      logoUrl = `/uploads/logos/${req.file.filename}`;
+    }
 
     const result = await db.query(
       `UPDATE companies SET
@@ -59,7 +87,7 @@ router.put("/", async (req, res, next) => {
         companyReg || null,
         utr || null,
         website || null,
-        logoUrl || null,
+        logoUrl,
         currencyCode || null,
         currencySymbol || null,
         defaultReminderHours != null ? defaultReminderHours : null,
