@@ -44,6 +44,7 @@ app.use(morgan("dev"));
 // Public routes
 app.use("/auth", authRoutes);
 app.get("/health", (_, res) => res.json({ ok: true }));
+app.use("/uploads", express.static("uploads"));
 
 // HMRC OAuth callback - must be public (browser redirect from HMRC, no JWT)
 app.get("/hmrc/callback", async (req, res) => {
@@ -127,9 +128,6 @@ app.use("/chat", requireAuth, chatRoutes);
 app.use("/", requireAuth, engineersRoutes);
 app.use("/", requireAuth, jobsRoutes);
 app.use("/", requireAuth, remindersRoutes);
-
-// serve uploaded files (dev)
-app.use("/uploads", express.static("uploads"));
 
 app.use((err, req, res, next) => {
   console.error(err);
