@@ -74,86 +74,161 @@ class _ChatListScreenState extends State<ChatListScreen> {
     return email.isNotEmpty ? email : "User #${contact["id"]}";
   }
 
-  Future<void> _showInviteDialog() async {
-    final emailCtrl = TextEditingController();
-    String selectedRole = "engineer";
-    final roles = ["owner", "admin", "engineer", "accountant"];
+  Color _parseColour(String hex) {
+    final clean = hex.replaceAll("#", "");
+    return Color(int.parse("FF$clean", radix: 16));
+  }
 
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            return AlertDialog(
-              title: const Text("Invite Team Member"),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: emailCtrl,
-                    decoration: const InputDecoration(
-                      labelText: "Email *",
-                      border: OutlineInputBorder(),
+  Future<void> _showEngineerList() async {
+    try {
+      final api = await ApiClient.create();
+      final res = await api.dio.get("/engineers");
+      final engineers = res.data is List
+          ? res.data as List
+          : (res.data["engineers"] ?? []) as List;
+
+      if (!mounted) return;
+
+      if (engineers.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No engineers found. Add engineers first.")),
+        );
+        return;
+      }
+
+      final contactEmails = contacts
+          .map((c) => c["email"]?.toString().toLowerCase() ?? "")
+          .toSet();
+
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (ctx) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text(
+                    "Select Engineer to Chat",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-                    keyboardType: TextInputType.emailAddress,
                   ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: selectedRole,
-                    decoration: const InputDecoration(
-                      labelText: "Role",
-                      border: OutlineInputBorder(),
-                    ),
-                    items: roles.map((r) {
-                      return DropdownMenuItem(
-                        value: r,
-                        child: Text(r[0].toUpperCase() + r.substring(1)),
+                ),
+                const Divider(),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: engineers.length,
+                    itemBuilder: (_, i) {
+                      final eng = engineers[i];
+                      final name = eng["name"]?.toString() ?? "Engineer";
+                      final email = eng["email"]?.toString() ?? "";
+                      final colour = _parseColour(
+                          eng["colour"]?.toString() ?? "#2563EB");
+                      final alreadyConnected =
+                          contactEmails.contains(email.toLowerCase());
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: colour,
+                          child: Text(
+                            name.isNotEmpty
+                                ? name.substring(0, 1).toUpperCase()
+                                : "E",
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        title: Text(name),
+                        subtitle: Text(email.isNotEmpty ? email : "No email"),
+                        trailing: alreadyConnected
+                            ? const Icon(Icons.chat, color: Colors.green)
+                            : const Icon(Icons.send, color: Colors.blue),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          if (alreadyConnected) {
+                            final contact = contacts.firstWhere(
+                              (c) =>
+                                  c["email"]?.toString().toLowerCase() ==
+                                  email.toLowerCase(),
+                              orElse: () => null,
+                            );
+                            if (contact != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChatConversationScreen(
+                                    isGroup: false,
+                                    recipientId: contact["id"],
+                                    title: _displayName(contact),
+                                  ),
+                                ),
+                              ).then((_) => _load());
+                            }
+                          } else {
+                            if (email.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                      "$name has no email. Add an email on the Engineers page first."),
+                                ),
+                              );
+                              return;
+                            }
+                            await _inviteEngineer(name, email);
+                          }
+                        },
                       );
-                    }).toList(),
-                    onChanged: (v) {
-                      setDialogState(() => selectedRole = v!);
                     },
                   ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text("Cancel"),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (emailCtrl.text.trim().isEmpty) return;
-                    try {
-                      final api = await ApiClient.create();
-                      await api.dio.post("/team/invite", data: {
-                        "email": emailCtrl.text.trim(),
-                        "role": selectedRole,
-                      });
-                      Navigator.pop(ctx, true);
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Error: $e")),
-                      );
-                    }
-                  },
-                  child: const Text("Send Invite"),
                 ),
               ],
-            );
-          },
-        );
-      },
-    );
-
-    if (result == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Invitation sent! They'll appear here once they accept."),
-          backgroundColor: Colors.green,
-        ),
+            ),
+          );
+        },
       );
-      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error loading engineers: $e")),
+        );
+      }
+    }
+  }
+
+  Future<void> _inviteEngineer(String name, String email) async {
+    try {
+      final api = await ApiClient.create();
+      await api.dio.post("/team/invite", data: {
+        "email": email,
+        "role": "engineer",
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                "Invitation sent to $name ($email). They'll appear here once they download the app and accept."),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        String msg = "Error sending invitation";
+        if (e.toString().contains("409")) {
+          msg = "$name has already been invited or is already a member";
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg)),
+        );
+      }
     }
   }
 
@@ -180,10 +255,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
             icon: const Icon(Icons.refresh),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showInviteDialog,
-        child: const Icon(Icons.person_add),
       ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
@@ -221,38 +292,63 @@ class _ChatListScreenState extends State<ChatListScreen> {
                     ),
                   ),
 
-                  // Divider
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      "DIRECT MESSAGES",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                        letterSpacing: 1,
-                      ),
+                  // Direct Messages header with engineer picker button
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+                    child: Row(
+                      children: [
+                        const Text(
+                          "DIRECT MESSAGES",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        const Spacer(),
+                        InkWell(
+                          onTap: _showEngineerList,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Colors.green.withOpacity(0.3)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.engineering,
+                                    size: 18, color: Colors.green),
+                                SizedBox(width: 4),
+                                Text(
+                                  "Engineers",
+                                  style: TextStyle(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
                   if (contacts.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(32),
+                    const Padding(
+                      padding: EdgeInsets.all(32),
                       child: Center(
-                        child: Column(
-                          children: [
-                            const Text(
-                              "No team members yet.",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                            const SizedBox(height: 12),
-                            ElevatedButton.icon(
-                              onPressed: _showInviteDialog,
-                              icon: const Icon(Icons.person_add),
-                              label: const Text("Invite Someone"),
-                            ),
-                          ],
+                        child: Text(
+                          "No team members yet.\nTap 'Engineers' above to invite someone.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey),
                         ),
                       ),
                     ),
@@ -270,8 +366,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: _roleColor(role),
-                          child: Icon(_roleIcon(role), color: Colors.white,
-                              size: 20),
+                          child: Icon(_roleIcon(role),
+                              color: Colors.white, size: 20),
                         ),
                         title: Text(
                           name,
