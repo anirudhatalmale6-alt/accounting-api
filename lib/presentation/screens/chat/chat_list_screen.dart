@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../data/services/api_client.dart';
 import '../../../data/services/chat_service.dart';
 import 'chat_conversation_screen.dart';
 
@@ -73,6 +74,89 @@ class _ChatListScreenState extends State<ChatListScreen> {
     return email.isNotEmpty ? email : "User #${contact["id"]}";
   }
 
+  Future<void> _showInviteDialog() async {
+    final emailCtrl = TextEditingController();
+    String selectedRole = "engineer";
+    final roles = ["owner", "admin", "engineer", "accountant"];
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              title: const Text("Invite Team Member"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: emailCtrl,
+                    decoration: const InputDecoration(
+                      labelText: "Email *",
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: "Role",
+                      border: OutlineInputBorder(),
+                    ),
+                    items: roles.map((r) {
+                      return DropdownMenuItem(
+                        value: r,
+                        child: Text(r[0].toUpperCase() + r.substring(1)),
+                      );
+                    }).toList(),
+                    onChanged: (v) {
+                      setDialogState(() => selectedRole = v!);
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (emailCtrl.text.trim().isEmpty) return;
+                    try {
+                      final api = await ApiClient.create();
+                      await api.dio.post("/team/invite", data: {
+                        "email": emailCtrl.text.trim(),
+                        "role": selectedRole,
+                      });
+                      Navigator.pop(ctx, true);
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Error: $e")),
+                      );
+                    }
+                  },
+                  child: const Text("Send Invite"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Invitation sent! They'll appear here once they accept."),
+          backgroundColor: Colors.green,
+        ),
+      );
+      await _load();
+    }
+  }
+
   String _timeAgo(String? dateStr) {
     if (dateStr == null) return "";
     final date = DateTime.tryParse(dateStr);
@@ -96,6 +180,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
             icon: const Icon(Icons.refresh),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showInviteDialog,
+        child: const Icon(Icons.person_add),
       ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
@@ -148,13 +236,23 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   ),
 
                   if (contacts.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(32),
+                    Padding(
+                      padding: const EdgeInsets.all(32),
                       child: Center(
-                        child: Text(
-                          "No team members yet.\nInvite people from Team Management.",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey),
+                        child: Column(
+                          children: [
+                            const Text(
+                              "No team members yet.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton.icon(
+                              onPressed: _showInviteDialog,
+                              icon: const Icon(Icons.person_add),
+                              label: const Text("Invite Someone"),
+                            ),
+                          ],
                         ),
                       ),
                     ),
