@@ -153,7 +153,7 @@ router.put("/:id", async (req, res, next) => {
       return res.status(403).json({ error: "Only the company owner or admin can update team members" });
     }
 
-    if (memberId === req.user.userId && role) {
+    if (memberId === req.user.userId && role && role !== req.user.role) {
       return res.status(400).json({ error: "You cannot change your own role" });
     }
 
@@ -166,7 +166,10 @@ router.put("/:id", async (req, res, next) => {
     const values = [];
     let paramIdx = 1;
 
-    if (role) { updates.push(`role=$${paramIdx++}`); values.push(role); }
+    if (role && (memberId !== req.user.userId)) {
+      updates.push(`role=$${paramIdx++}`);
+      values.push(role);
+    }
     if (name !== undefined) { updates.push(`name=$${paramIdx++}`); values.push(name); }
 
     if (updates.length > 0) {
