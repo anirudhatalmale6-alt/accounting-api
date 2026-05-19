@@ -134,14 +134,24 @@ router.post("/jobs", async (req, res, next) => {
       return res.status(403).json({ error: "Only owner or admin can create jobs" });
     }
     const companyId = req.user.companyId;
-    const {
-      customerId, engineerId, title, description,
-      jobType, status, startTime, endTime,
-      address, notes, recurrence,
-      recurrenceEnd, recurrenceInterval,
-      customerReminder, engineerReminder,
-      customerReminderMinutes, engineerReminderMinutes,
-    } = req.body;
+    const b = req.body;
+    const customerId = b.customerId || b.customer_id;
+    const engineerId = b.engineerId || b.engineer_id;
+    const title = b.title;
+    const description = b.description;
+    const jobType = b.jobType || b.job_type;
+    const status = b.status;
+    const startTime = b.startTime || b.start_time;
+    const endTime = b.endTime || b.end_time;
+    const address = b.address;
+    const notes = b.notes;
+    const recurrence = b.recurrence;
+    const recurrenceEnd = b.recurrenceEnd || b.recurrence_end;
+    const recurrenceInterval = b.recurrenceInterval || b.recurrence_interval;
+    const customerReminder = b.customerReminder ?? b.customer_reminder;
+    const engineerReminder = b.engineerReminder ?? b.engineer_reminder;
+    const customerReminderMinutes = b.customerReminderMinutes || b.customer_reminder_minutes;
+    const engineerReminderMinutes = b.engineerReminderMinutes || b.engineer_reminder_minutes;
 
     if (!title || !startTime) {
       return res.status(400).json({ error: "Title and startTime are required" });
@@ -332,13 +342,22 @@ router.put("/jobs/:id", async (req, res, next) => {
     }
     const companyId = req.user.companyId;
     const id = req.params.id;
-    const {
-      customerId, engineerId, title, description,
-      jobType, status, startTime, endTime,
-      address, notes, recurrence,
-      customerReminder, engineerReminder,
-      customerReminderMinutes, engineerReminderMinutes,
-    } = req.body;
+    const b = req.body;
+    const customerId = b.customerId || b.customer_id;
+    const engineerId = b.engineerId || b.engineer_id;
+    const title = b.title;
+    const description = b.description;
+    const jobType = b.jobType || b.job_type;
+    const status = b.status;
+    const startTime = b.startTime || b.start_time;
+    const endTime = b.endTime || b.end_time;
+    const address = b.address;
+    const notes = b.notes;
+    const recurrence = b.recurrence;
+    const customerReminder = b.customerReminder ?? b.customer_reminder;
+    const engineerReminder = b.engineerReminder ?? b.engineer_reminder;
+    const customerReminderMinutes = b.customerReminderMinutes || b.customer_reminder_minutes;
+    const engineerReminderMinutes = b.engineerReminderMinutes || b.engineer_reminder_minutes;
 
     // Get old status before updating
     const oldJob = await db.query(
