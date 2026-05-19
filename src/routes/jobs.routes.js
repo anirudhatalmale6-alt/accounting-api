@@ -86,6 +86,18 @@ async function notifyCustomer(companyId, job, newStatus) {
   }
 }
 
+function addRecurrenceInterval(date, recurrence, interval) {
+  const d = new Date(date);
+  const n = interval || 1;
+  switch (recurrence) {
+    case "daily": d.setDate(d.getDate() + n); break;
+    case "weekly": d.setDate(d.getDate() + 7 * n); break;
+    case "monthly": d.setMonth(d.getMonth() + n); break;
+    case "yearly": d.setFullYear(d.getFullYear() + n); break;
+  }
+  return d;
+}
+
 router.post("/jobs", async (req, res, next) => {
   try {
     if (!["owner", "admin"].includes(req.user.role)) {
@@ -96,6 +108,7 @@ router.post("/jobs", async (req, res, next) => {
       customerId, engineerId, title, description,
       jobType, status, startTime, endTime,
       address, notes, recurrence,
+      recurrenceEnd, recurrenceInterval,
     } = req.body;
 
     if (!title || !startTime) {
@@ -105,8 +118,8 @@ router.post("/jobs", async (req, res, next) => {
     const result = await db.query(
       `INSERT INTO jobs
        (company_id, customer_id, engineer_id, title, description, job_type, status,
-        start_time, end_time, address, notes, recurrence)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        start_time, end_time, address, notes, recurrence, recurrence_end, recurrence_interval)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
        RETURNING *`,
       [
         companyId,
@@ -121,9 +134,44 @@ router.post("/jobs", async (req, res, next) => {
         address || null,
         notes || null,
         recurrence || "none",
+        recurrenceEnd || null,
+        recurrenceInterval || 1,
       ]
     );
-    res.json({ job: result.rows[0] });
+
+    const parentJob = result.rows[0];
+
+    if (recurrence && recurrence !== "none") {
+      const duration = endTime && startTime
+        ? new Date(endTime) - new Date(startTime)
+        : null;
+      const endDate = recurrenceEnd ? new Date(recurrenceEnd) : null;
+      const maxOccurrences = 52;
+      let currentStart = new Date(startTime);
+      let count = 0;
+
+      while (count < maxOccurrences) {
+        currentStart = addRecurrenceInterval(currentStart, recurrence, recurrenceInterval || 1);
+        if (endDate && currentStart > endDate) break;
+        const childEnd = duration ? new Date(currentStart.getTime() + duration) : null;
+
+        await db.query(
+          `INSERT INTO jobs
+           (company_id, customer_id, engineer_id, title, description, job_type, status,
+            start_time, end_time, address, notes, recurrence, parent_job_id)
+           VALUES ($1,$2,$3,$4,$5,$6,'scheduled',$7,$8,$9,$10,$11,$12)`,
+          [
+            companyId, customerId || null, engineerId || null,
+            title, description || null, jobType || null,
+            currentStart.toISOString(), childEnd ? childEnd.toISOString() : null,
+            address || null, notes || null, recurrence, parentJob.id,
+          ]
+        );
+        count++;
+      }
+    }
+
+    res.json({ job: parentJob });
   } catch (e) { next(e); }
 });
 
@@ -137,7 +185,11 @@ router.get("/jobs", async (req, res, next) => {
         j.*,
         c.name AS customer_name,
         e.name AS engineer_name,
-        e.colour AS engineer_colour
+        e.colour AS engineer_colour,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer') AS customer_reminder_set,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' AND r.is_sent=true) AS customer_reminder_sent,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer') AS engineer_reminder_set,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent
        FROM jobs j
        LEFT JOIN customers c ON c.id = j.customer_id
        LEFT JOIN engineers e ON e.id = j.engineer_id
@@ -158,7 +210,11 @@ router.get("/jobs/today", async (req, res, next) => {
         j.*,
         c.name AS customer_name,
         e.name AS engineer_name,
-        e.colour AS engineer_colour
+        e.colour AS engineer_colour,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer') AS customer_reminder_set,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' AND r.is_sent=true) AS customer_reminder_sent,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer') AS engineer_reminder_set,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent
        FROM jobs j
        LEFT JOIN customers c ON c.id = j.customer_id
        LEFT JOIN engineers e ON e.id = j.engineer_id
@@ -179,7 +235,11 @@ router.get("/jobs/upcoming", async (req, res, next) => {
         j.*,
         c.name AS customer_name,
         e.name AS engineer_name,
-        e.colour AS engineer_colour
+        e.colour AS engineer_colour,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer') AS customer_reminder_set,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' AND r.is_sent=true) AS customer_reminder_sent,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer') AS engineer_reminder_set,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent
        FROM jobs j
        LEFT JOIN customers c ON c.id = j.customer_id
        LEFT JOIN engineers e ON e.id = j.engineer_id
@@ -204,7 +264,11 @@ router.get("/jobs/:id", async (req, res, next) => {
         j.*,
         c.name AS customer_name,
         e.name AS engineer_name,
-        e.colour AS engineer_colour
+        e.colour AS engineer_colour,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer') AS customer_reminder_set,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' AND r.is_sent=true) AS customer_reminder_sent,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer') AS engineer_reminder_set,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent
        FROM jobs j
        LEFT JOIN customers c ON c.id = j.customer_id
        LEFT JOIN engineers e ON e.id = j.engineer_id
@@ -300,10 +364,18 @@ router.delete("/jobs/:id", async (req, res, next) => {
     if (!["owner", "admin"].includes(req.user.role)) {
       return res.status(403).json({ error: "Only owner or admin can delete jobs" });
     }
-    await db.query(
-      `DELETE FROM jobs WHERE id=$1 AND company_id=$2`,
-      [req.params.id, req.user.companyId]
-    );
+    const deleteAll = req.query.series === "true";
+    if (deleteAll) {
+      await db.query(
+        `DELETE FROM jobs WHERE (id=$1 OR parent_job_id=$1) AND company_id=$2`,
+        [req.params.id, req.user.companyId]
+      );
+    } else {
+      await db.query(
+        `DELETE FROM jobs WHERE id=$1 AND company_id=$2`,
+        [req.params.id, req.user.companyId]
+      );
+    }
     res.json({ success: true });
   } catch (e) { next(e); }
 });
@@ -325,7 +397,11 @@ router.get("/dispatch/live-board", async (req, res, next) => {
         j.*,
         c.name AS customer_name,
         e.name AS engineer_name,
-        e.colour AS engineer_colour
+        e.colour AS engineer_colour,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer') AS customer_reminder_set,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' AND r.is_sent=true) AS customer_reminder_sent,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer') AS engineer_reminder_set,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent
        FROM jobs j
        LEFT JOIN customers c ON c.id = j.customer_id
        LEFT JOIN engineers e ON e.id = j.engineer_id

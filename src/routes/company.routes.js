@@ -32,7 +32,8 @@ router.get("/", async (req, res, next) => {
     const result = await db.query(
       `SELECT id, name, business_name, address, phone, email, vrn,
               company_reg, utr, website, logo_url,
-              currency_code, currency_symbol, default_reminder_hours
+              currency_code, currency_symbol, default_reminder_hours,
+              payment_details, gas_safe_number, postal_code, invoice_prefix
        FROM companies WHERE id = $1`,
       [companyId]
     );
@@ -52,6 +53,7 @@ router.put("/", logoUpload.single("logo"), async (req, res, next) => {
       name, businessName, address, phone, email, vrn,
       companyReg, utr, website,
       currencyCode, currencySymbol, defaultReminderHours,
+      paymentDetails, gasSafeNumber, postalCode, invoicePrefix,
     } = req.body;
 
     let logoUrl = null;
@@ -73,7 +75,11 @@ router.put("/", logoUpload.single("logo"), async (req, res, next) => {
         logo_url = COALESCE($11, logo_url),
         currency_code = COALESCE($12, currency_code),
         currency_symbol = COALESCE($13, currency_symbol),
-        default_reminder_hours = COALESCE($14, default_reminder_hours)
+        default_reminder_hours = COALESCE($14, default_reminder_hours),
+        payment_details = COALESCE($15, payment_details),
+        gas_safe_number = COALESCE($16, gas_safe_number),
+        postal_code = COALESCE($17, postal_code),
+        invoice_prefix = COALESCE($18, invoice_prefix)
       WHERE id = $1
       RETURNING *`,
       [
@@ -91,6 +97,10 @@ router.put("/", logoUpload.single("logo"), async (req, res, next) => {
         currencyCode || null,
         currencySymbol || null,
         defaultReminderHours != null ? defaultReminderHours : null,
+        paymentDetails || null,
+        gasSafeNumber || null,
+        postalCode || null,
+        invoicePrefix || null,
       ]
     );
 

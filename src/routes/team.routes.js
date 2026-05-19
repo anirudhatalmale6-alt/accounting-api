@@ -152,10 +152,6 @@ router.put("/:id", async (req, res, next) => {
       return res.status(403).json({ error: "Only the company owner or admin can update team members" });
     }
 
-    if (memberId === req.user.userId && role && role !== req.user.role) {
-      return res.status(400).json({ error: "You cannot change your own role" });
-    }
-
     const validRoles = ["owner", "admin", "engineer", "accountant"];
     if (role && !validRoles.includes(role)) {
       return res.status(400).json({ error: "Invalid role" });

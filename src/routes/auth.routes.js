@@ -114,16 +114,6 @@ router.post("/login", async (req, res, next) => {
     const ok = await bcrypt.compare(password, firstUser.password_hash);
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
-    if (result.rowCount > 1 && !companyId) {
-      const companies = result.rows.map(r => ({
-        companyId: r.company_id,
-        companyName: r.business_name || r.company_name || `Company #${r.company_id}`,
-        role: r.role,
-        userId: r.id,
-      }));
-      return res.json({ multipleCompanies: true, companies });
-    }
-
     const user = companyId
       ? result.rows.find(r => r.company_id === companyId) || firstUser
       : firstUser;
@@ -134,10 +124,21 @@ router.post("/login", async (req, res, next) => {
       { expiresIn: "7d" }
     );
 
-    res.json({
+    const response = {
       user: { id: user.id, companyId: user.company_id, email: user.email, name: user.name, role: user.role },
       token,
-    });
+    };
+
+    if (result.rowCount > 1) {
+      response.companies = result.rows.map(r => ({
+        companyId: r.company_id,
+        companyName: r.business_name || r.company_name || `Company #${r.company_id}`,
+        role: r.role,
+        userId: r.id,
+      }));
+    }
+
+    res.json(response);
   } catch (e) {
     next(e);
   }
