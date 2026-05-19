@@ -86,6 +86,36 @@ async function notifyCustomer(companyId, job, newStatus) {
   }
 }
 
+async function syncJobReminders(companyId, jobId, startTime, { customerReminder, engineerReminder, customerReminderMinutes, engineerReminderMinutes }) {
+  const defaultMinutes = 60;
+
+  if (customerReminder !== undefined) {
+    await db.query(`DELETE FROM job_reminders WHERE job_id=$1 AND recipient_type='customer'`, [jobId]);
+    if (customerReminder) {
+      const mins = customerReminderMinutes || defaultMinutes;
+      const remindAt = new Date(new Date(startTime).getTime() - mins * 60 * 1000);
+      await db.query(
+        `INSERT INTO job_reminders (company_id, job_id, remind_at, remind_type, recipient_type)
+         VALUES ($1, $2, $3, 'email', 'customer')`,
+        [companyId, jobId, remindAt]
+      );
+    }
+  }
+
+  if (engineerReminder !== undefined) {
+    await db.query(`DELETE FROM job_reminders WHERE job_id=$1 AND recipient_type='engineer'`, [jobId]);
+    if (engineerReminder) {
+      const mins = engineerReminderMinutes || defaultMinutes;
+      const remindAt = new Date(new Date(startTime).getTime() - mins * 60 * 1000);
+      await db.query(
+        `INSERT INTO job_reminders (company_id, job_id, remind_at, remind_type, recipient_type)
+         VALUES ($1, $2, $3, 'email', 'engineer')`,
+        [companyId, jobId, remindAt]
+      );
+    }
+  }
+}
+
 function addRecurrenceInterval(date, recurrence, interval) {
   const d = new Date(date);
   const n = interval || 1;
@@ -109,6 +139,8 @@ router.post("/jobs", async (req, res, next) => {
       jobType, status, startTime, endTime,
       address, notes, recurrence,
       recurrenceEnd, recurrenceInterval,
+      customerReminder, engineerReminder,
+      customerReminderMinutes, engineerReminderMinutes,
     } = req.body;
 
     if (!title || !startTime) {
@@ -141,6 +173,10 @@ router.post("/jobs", async (req, res, next) => {
 
     const parentJob = result.rows[0];
 
+    await syncJobReminders(companyId, parentJob.id, startTime, {
+      customerReminder, engineerReminder, customerReminderMinutes, engineerReminderMinutes,
+    });
+
     if (recurrence && recurrence !== "none") {
       const duration = endTime && startTime
         ? new Date(endTime) - new Date(startTime)
@@ -155,11 +191,12 @@ router.post("/jobs", async (req, res, next) => {
         if (endDate && currentStart > endDate) break;
         const childEnd = duration ? new Date(currentStart.getTime() + duration) : null;
 
-        await db.query(
+        const childResult = await db.query(
           `INSERT INTO jobs
            (company_id, customer_id, engineer_id, title, description, job_type, status,
             start_time, end_time, address, notes, recurrence, parent_job_id)
-           VALUES ($1,$2,$3,$4,$5,$6,'scheduled',$7,$8,$9,$10,$11,$12)`,
+           VALUES ($1,$2,$3,$4,$5,$6,'scheduled',$7,$8,$9,$10,$11,$12)
+           RETURNING id`,
           [
             companyId, customerId || null, engineerId || null,
             title, description || null, jobType || null,
@@ -167,6 +204,9 @@ router.post("/jobs", async (req, res, next) => {
             address || null, notes || null, recurrence, parentJob.id,
           ]
         );
+        await syncJobReminders(companyId, childResult.rows[0].id, currentStart.toISOString(), {
+          customerReminder, engineerReminder, customerReminderMinutes, engineerReminderMinutes,
+        });
         count++;
       }
     }
@@ -296,6 +336,8 @@ router.put("/jobs/:id", async (req, res, next) => {
       customerId, engineerId, title, description,
       jobType, status, startTime, endTime,
       address, notes, recurrence,
+      customerReminder, engineerReminder,
+      customerReminderMinutes, engineerReminderMinutes,
     } = req.body;
 
     // Get old status before updating
@@ -330,6 +372,12 @@ router.put("/jobs/:id", async (req, res, next) => {
     );
 
     const updatedJob = result.rows[0];
+
+    if (updatedJob) {
+      await syncJobReminders(companyId, updatedJob.id, updatedJob.start_time, {
+        customerReminder, engineerReminder, customerReminderMinutes, engineerReminderMinutes,
+      });
+    }
 
     // Notify customer if status changed
     if (updatedJob && status && status !== oldStatus) {
