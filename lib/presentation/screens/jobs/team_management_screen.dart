@@ -24,11 +24,13 @@ class TeamService {
     required int id,
     required String role,
     required bool isActive,
+    String? name,
   }) async {
     final api = await ApiClient.create();
     await api.dio.put("/team/$id", data: {
       "role": role,
       "isActive": isActive,
+      if (name != null && name.isNotEmpty) "name": name,
     });
   }
 }
@@ -173,6 +175,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
   }
 
   Future<void> _editMember(Map member) async {
+    final nameCtrl = TextEditingController(text: member["name"] ?? "");
     String role = member["role"] ?? "engineer";
     bool isActive = member["is_active"] ?? true;
 
@@ -186,6 +189,14 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: "Name",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: role,
                     decoration: const InputDecoration(
@@ -225,6 +236,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                         id: member["id"],
                         role: role,
                         isActive: isActive,
+                        name: nameCtrl.text.trim(),
                       );
                       Navigator.pop(ctx, true);
                     } catch (e) {
@@ -285,7 +297,9 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                             color: Colors.white,
                           ),
                         ),
-                        title: Text("User #${m["user_id"]}"),
+                        title: Text(m["name"]?.toString().isNotEmpty == true
+                            ? m["name"]
+                            : m["email"]?.toString() ?? "User #${m["id"]}"),
                         subtitle: Row(
                           children: [
                             Container(

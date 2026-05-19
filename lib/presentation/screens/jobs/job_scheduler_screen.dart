@@ -138,6 +138,13 @@ class _JobSchedulerScreenState
                 appointments,
               ),
               onDragEnd: onDragEnd,
+              onTap: (CalendarTapDetails details) {
+                if (details.targetElement ==
+                    CalendarElement.calendarCell) {
+                  Navigator.pushNamed(context, "/jobs/new")
+                      .then((_) => load());
+                }
+              },
               timeSlotViewSettings:
                   const TimeSlotViewSettings(
                 startHour: 7,
