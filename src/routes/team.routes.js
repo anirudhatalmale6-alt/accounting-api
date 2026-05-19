@@ -104,10 +104,9 @@ router.get("/", async (req, res, next) => {
   try {
     const companyId = Number(req.user.companyId);
     const result = await db.query(
-      `SELECT u.id, u.email, u.name, u.role, u.created_at,
-              CASE WHEN u.id = $2 THEN false ELSE true END AS is_active
+      `SELECT u.id, u.email, u.name, u.role, u.is_active, u.created_at
        FROM users u WHERE u.company_id=$1 ORDER BY u.created_at`,
-      [companyId, req.user.userId]
+      [companyId]
     );
     res.json({ members: result.rows });
   } catch (e) { next(e); }
@@ -119,7 +118,7 @@ router.get("/members", async (req, res, next) => {
     const companyId = Number(req.user.companyId);
 
     const result = await db.query(
-      `SELECT id, email, name, role, created_at FROM users WHERE company_id=$1 ORDER BY created_at`,
+      `SELECT id, email, name, role, is_active, created_at FROM users WHERE company_id=$1 ORDER BY created_at`,
       [companyId]
     );
 
@@ -169,6 +168,10 @@ router.put("/:id", async (req, res, next) => {
     if (role && (memberId !== req.user.userId)) {
       updates.push(`role=$${paramIdx++}`);
       values.push(role);
+    }
+    if (isActive !== undefined) {
+      updates.push(`is_active=$${paramIdx++}`);
+      values.push(Boolean(isActive));
     }
     if (name !== undefined) { updates.push(`name=$${paramIdx++}`); values.push(name); }
 

@@ -96,18 +96,37 @@ router.post("/login", async (req, res, next) => {
   try {
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
+    const companyId = req.body.companyId ? Number(req.body.companyId) : null;
 
     const result = await db.query(
-      `SELECT id, company_id, email, name, role, password_hash
-       FROM users WHERE email=$1`,
+      `SELECT u.id, u.company_id, u.email, u.name, u.role, u.password_hash,
+              c.name AS company_name, c.business_name
+       FROM users u
+       LEFT JOIN companies c ON c.id = u.company_id
+       WHERE u.email=$1
+       ORDER BY u.id DESC`,
       [email]
     );
 
     if (result.rowCount === 0) return res.status(401).json({ error: "Invalid credentials" });
 
-    const user = result.rows[0];
-    const ok = await bcrypt.compare(password, user.password_hash);
+    const firstUser = result.rows[0];
+    const ok = await bcrypt.compare(password, firstUser.password_hash);
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+
+    if (result.rowCount > 1 && !companyId) {
+      const companies = result.rows.map(r => ({
+        companyId: r.company_id,
+        companyName: r.business_name || r.company_name || `Company #${r.company_id}`,
+        role: r.role,
+        userId: r.id,
+      }));
+      return res.json({ multipleCompanies: true, companies });
+    }
+
+    const user = companyId
+      ? result.rows.find(r => r.company_id === companyId) || firstUser
+      : firstUser;
 
     const token = jwt.sign(
       { userId: user.id, companyId: user.company_id, email: user.email, role: user.role },
