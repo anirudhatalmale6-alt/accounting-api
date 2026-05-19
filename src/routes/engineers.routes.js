@@ -7,8 +7,8 @@ router.get("/engineers", async (req, res, next) => {
   try {
     const result = await db.query(
       `SELECT * FROM engineers
-       WHERE company_id=$1 AND is_active=true
-       ORDER BY name ASC`,
+       WHERE company_id=$1
+       ORDER BY is_active DESC, name ASC`,
       [req.user.companyId]
     );
     res.json({ engineers: result.rows });

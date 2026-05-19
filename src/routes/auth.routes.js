@@ -98,7 +98,7 @@ router.post("/login", async (req, res, next) => {
     const password = String(req.body.password || "");
 
     const result = await db.query(
-      `SELECT id, company_id, email, role, password_hash
+      `SELECT id, company_id, email, name, role, password_hash
        FROM users WHERE email=$1`,
       [email]
     );
@@ -116,7 +116,7 @@ router.post("/login", async (req, res, next) => {
     );
 
     res.json({
-      user: { id: user.id, companyId: user.company_id, email: user.email, role: user.role },
+      user: { id: user.id, companyId: user.company_id, email: user.email, name: user.name, role: user.role },
       token,
     });
   } catch (e) {

@@ -88,6 +88,9 @@ async function notifyCustomer(companyId, job, newStatus) {
 
 router.post("/jobs", async (req, res, next) => {
   try {
+    if (!["owner", "admin"].includes(req.user.role)) {
+      return res.status(403).json({ error: "Only owner or admin can create jobs" });
+    }
     const companyId = req.user.companyId;
     const {
       customerId, engineerId, title, description,
@@ -219,6 +222,10 @@ router.get("/jobs/:id", async (req, res, next) => {
 
 router.put("/jobs/:id", async (req, res, next) => {
   try {
+    const isStatusOnlyUpdate = Object.keys(req.body).length === 1 && req.body.status;
+    if (!["owner", "admin"].includes(req.user.role) && !isStatusOnlyUpdate) {
+      return res.status(403).json({ error: "Only owner or admin can edit jobs" });
+    }
     const companyId = req.user.companyId;
     const id = req.params.id;
     const {
@@ -290,6 +297,9 @@ router.patch("/jobs/:id/reschedule", async (req, res, next) => {
 
 router.delete("/jobs/:id", async (req, res, next) => {
   try {
+    if (!["owner", "admin"].includes(req.user.role)) {
+      return res.status(403).json({ error: "Only owner or admin can delete jobs" });
+    }
     await db.query(
       `DELETE FROM jobs WHERE id=$1 AND company_id=$2`,
       [req.params.id, req.user.companyId]

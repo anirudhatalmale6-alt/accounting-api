@@ -38,15 +38,15 @@ router.post("/subcontractors", async (req, res, next) => {
   try {
     const companyId = Number(req.user.companyId);
     const { name, trading_name, company_details, utr, nino, national_insurance_number,
-            company_reg, phone, email, address, address_line1, address_line2, city, postcode } = req.body;
+            company_reg, phone, email, address, address_line1, address_line2, city, postcode, tax_code } = req.body;
 
     if (!name) return res.status(400).json({ error: "Name is required" });
 
     const result = await db.query(
       `INSERT INTO cis_subcontractors
        (company_id, name, trading_name, utr, nino, company_reg, phone, email,
-        address_line1, address_line2, city, postcode)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        address_line1, address_line2, city, postcode, tax_code)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        RETURNING *`,
       [companyId, name,
        trading_name || company_details || null,
@@ -58,7 +58,8 @@ router.post("/subcontractors", async (req, res, next) => {
        address_line1 || address || null,
        address_line2 || null,
        city || null,
-       postcode || null]
+       postcode || null,
+       tax_code || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (e) {
@@ -76,7 +77,7 @@ router.put("/subcontractors/:id", async (req, res, next) => {
     const id = Number(req.params.id);
     const { name, trading_name, company_details, utr, nino, national_insurance_number,
             company_reg, phone, email, address, address_line1, address_line2,
-            city, postcode, deduction_rate } = req.body;
+            city, postcode, deduction_rate, tax_code } = req.body;
 
     const result = await db.query(
       `UPDATE cis_subcontractors SET
@@ -87,12 +88,14 @@ router.put("/subcontractors/:id", async (req, res, next) => {
         address_line2=COALESCE($11, address_line2), city=COALESCE($12, city),
         postcode=COALESCE($13, postcode),
         deduction_rate=COALESCE($14, deduction_rate),
+        tax_code=COALESCE($15, tax_code),
         updated_at=NOW()
        WHERE id=$1 AND company_id=$2 RETURNING *`,
       [id, companyId, name, trading_name || company_details,
        utr, nino || national_insurance_number, company_reg,
        phone, email, address_line1 || address, address_line2, city, postcode,
-       deduction_rate != null ? deduction_rate : null]
+       deduction_rate != null ? deduction_rate : null,
+       tax_code || null]
     );
     if (result.rowCount === 0) return res.status(404).json({ error: "Subcontractor not found" });
     res.json(result.rows[0]);

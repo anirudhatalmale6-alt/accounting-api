@@ -104,7 +104,7 @@ router.get("/", async (req, res, next) => {
   try {
     const companyId = Number(req.user.companyId);
     const result = await db.query(
-      `SELECT u.id, u.email, u.role, u.created_at,
+      `SELECT u.id, u.email, u.name, u.role, u.created_at,
               CASE WHEN u.id = $2 THEN false ELSE true END AS is_active
        FROM users u WHERE u.company_id=$1 ORDER BY u.created_at`,
       [companyId, req.user.userId]
@@ -119,7 +119,7 @@ router.get("/members", async (req, res, next) => {
     const companyId = Number(req.user.companyId);
 
     const result = await db.query(
-      `SELECT id, email, role, created_at FROM users WHERE company_id=$1 ORDER BY created_at`,
+      `SELECT id, email, name, role, created_at FROM users WHERE company_id=$1 ORDER BY created_at`,
       [companyId]
     );
 
@@ -147,13 +147,13 @@ router.put("/:id", async (req, res, next) => {
   try {
     const companyId = Number(req.user.companyId);
     const memberId = Number(req.params.id);
-    const { role, isActive } = req.body;
+    const { role, isActive, name } = req.body;
 
     if (req.user.role !== "owner" && req.user.role !== "admin") {
       return res.status(403).json({ error: "Only the company owner or admin can update team members" });
     }
 
-    if (memberId === req.user.userId) {
+    if (memberId === req.user.userId && role) {
       return res.status(400).json({ error: "You cannot change your own role" });
     }
 
@@ -162,10 +162,18 @@ router.put("/:id", async (req, res, next) => {
       return res.status(400).json({ error: "Invalid role" });
     }
 
-    if (role) {
+    const updates = [];
+    const values = [];
+    let paramIdx = 1;
+
+    if (role) { updates.push(`role=$${paramIdx++}`); values.push(role); }
+    if (name !== undefined) { updates.push(`name=$${paramIdx++}`); values.push(name); }
+
+    if (updates.length > 0) {
+      values.push(memberId, companyId);
       await db.query(
-        `UPDATE users SET role=$1 WHERE id=$2 AND company_id=$3`,
-        [role, memberId, companyId]
+        `UPDATE users SET ${updates.join(", ")} WHERE id=$${paramIdx++} AND company_id=$${paramIdx}`,
+        values
       );
     }
 

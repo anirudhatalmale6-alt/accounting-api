@@ -13,7 +13,7 @@ router.get("/group", async (req, res, next) => {
     let query, params;
     if (before) {
       query = `SELECT m.id, m.message, m.created_at,
-                      m.sender_id, u.email AS sender_email, u.role AS sender_role
+                      m.sender_id, u.email AS sender_email, u.name AS sender_name, u.role AS sender_role
                FROM chat_messages m
                JOIN users u ON u.id = m.sender_id
                WHERE m.company_id = $1
@@ -23,7 +23,7 @@ router.get("/group", async (req, res, next) => {
       params = [companyId, before, limit];
     } else {
       query = `SELECT m.id, m.message, m.created_at,
-                      m.sender_id, u.email AS sender_email, u.role AS sender_role
+                      m.sender_id, u.email AS sender_email, u.name AS sender_name, u.role AS sender_role
                FROM chat_messages m
                JOIN users u ON u.id = m.sender_id
                WHERE m.company_id = $1
@@ -79,7 +79,7 @@ router.get("/direct/:userId", async (req, res, next) => {
     let query, params;
     if (before) {
       query = `SELECT m.id, m.message, m.created_at,
-                      m.sender_id, u.email AS sender_email, u.role AS sender_role
+                      m.sender_id, u.email AS sender_email, u.name AS sender_name, u.role AS sender_role
                FROM chat_messages m
                JOIN users u ON u.id = m.sender_id
                WHERE m.company_id = $1
@@ -90,7 +90,7 @@ router.get("/direct/:userId", async (req, res, next) => {
       params = [companyId, myId, otherId, limit, before];
     } else {
       query = `SELECT m.id, m.message, m.created_at,
-                      m.sender_id, u.email AS sender_email, u.role AS sender_role
+                      m.sender_id, u.email AS sender_email, u.name AS sender_name, u.role AS sender_role
                FROM chat_messages m
                JOIN users u ON u.id = m.sender_id
                WHERE m.company_id = $1
@@ -157,7 +157,7 @@ router.get("/contacts", async (req, res, next) => {
     const myId = Number(req.user.userId);
 
     const result = await db.query(
-      `SELECT u.id, u.email, u.role,
+      `SELECT u.id, u.email, u.name, u.role,
               (SELECT m.message FROM chat_messages m
                WHERE m.company_id = $1
                  AND ((m.sender_id = $2 AND m.recipient_id = u.id)
