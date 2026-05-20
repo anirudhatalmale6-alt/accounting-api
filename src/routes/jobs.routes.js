@@ -556,4 +556,62 @@ router.get("/dispatch/live-board", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// POST /jobs/backfill-recurring - Generate missing child instances for existing recurring jobs
+router.post("/jobs/backfill-recurring", async (req, res, next) => {
+  try {
+    if (!["owner", "admin"].includes(req.user.role)) {
+      return res.status(403).json({ error: "Only owner or admin can backfill jobs" });
+    }
+    const companyId = req.user.companyId;
+
+    const parentJobs = await db.query(
+      `SELECT j.* FROM jobs j
+       WHERE j.company_id=$1
+       AND j.recurrence IS NOT NULL AND j.recurrence != 'none'
+       AND j.parent_job_id IS NULL
+       AND NOT EXISTS (SELECT 1 FROM jobs c WHERE c.parent_job_id = j.id)
+       ORDER BY j.id`,
+      [companyId]
+    );
+
+    let totalCreated = 0;
+    const results = [];
+
+    for (const parentJob of parentJobs.rows) {
+      const duration = parentJob.end_time && parentJob.start_time
+        ? new Date(parentJob.end_time) - new Date(parentJob.start_time)
+        : null;
+      const endDate = parentJob.recurrence_end ? new Date(parentJob.recurrence_end) : null;
+      const maxOccurrences = 52;
+      let currentStart = new Date(parentJob.start_time);
+      let count = 0;
+
+      while (count < maxOccurrences) {
+        currentStart = addRecurrenceInterval(currentStart, parentJob.recurrence, parentJob.recurrence_interval || 1);
+        if (endDate && currentStart > endDate) break;
+        const childEnd = duration ? new Date(currentStart.getTime() + duration) : null;
+
+        await db.query(
+          `INSERT INTO jobs
+           (company_id, customer_id, engineer_id, title, description, job_type, status,
+            start_time, end_time, address, notes, recurrence, parent_job_id)
+           VALUES ($1,$2,$3,$4,$5,$6,'scheduled',$7,$8,$9,$10,$11,$12)`,
+          [
+            companyId, parentJob.customer_id || null, parentJob.engineer_id || null,
+            parentJob.title, parentJob.description || null, parentJob.job_type || null,
+            currentStart.toISOString(), childEnd ? childEnd.toISOString() : null,
+            parentJob.address || null, parentJob.notes || null, parentJob.recurrence, parentJob.id,
+          ]
+        );
+        count++;
+      }
+
+      totalCreated += count;
+      results.push({ jobId: parentJob.id, title: parentJob.title, recurrence: parentJob.recurrence, instancesCreated: count });
+    }
+
+    res.json({ message: `Backfill complete`, parentJobsProcessed: parentJobs.rowCount, totalInstancesCreated: totalCreated, details: results });
+  } catch (e) { next(e); }
+});
+
 module.exports = router;
