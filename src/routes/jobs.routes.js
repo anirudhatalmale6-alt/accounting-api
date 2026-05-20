@@ -86,18 +86,19 @@ async function notifyCustomer(companyId, job, newStatus) {
   }
 }
 
-async function syncJobReminders(companyId, jobId, startTime, { customerReminder, engineerReminder, customerReminderMinutes, engineerReminderMinutes }) {
+async function syncJobReminders(companyId, jobId, startTime, { customerReminder, engineerReminder, customerReminderMinutes, engineerReminderMinutes, reminderAt }) {
   const defaultMinutes = 60;
 
   if (customerReminder !== undefined) {
     await db.query(`DELETE FROM job_reminders WHERE job_id=$1 AND recipient_type='customer'`, [jobId]);
     if (customerReminder) {
-      const mins = customerReminderMinutes || defaultMinutes;
-      const remindAt = new Date(new Date(startTime).getTime() - mins * 60 * 1000);
+      const remindTime = reminderAt
+        ? new Date(reminderAt)
+        : new Date(new Date(startTime).getTime() - (customerReminderMinutes || defaultMinutes) * 60 * 1000);
       await db.query(
         `INSERT INTO job_reminders (company_id, job_id, remind_at, remind_type, recipient_type)
          VALUES ($1, $2, $3, 'email', 'customer')`,
-        [companyId, jobId, remindAt]
+        [companyId, jobId, remindTime]
       );
     }
   }
@@ -105,12 +106,13 @@ async function syncJobReminders(companyId, jobId, startTime, { customerReminder,
   if (engineerReminder !== undefined) {
     await db.query(`DELETE FROM job_reminders WHERE job_id=$1 AND recipient_type='engineer'`, [jobId]);
     if (engineerReminder) {
-      const mins = engineerReminderMinutes || defaultMinutes;
-      const remindAt = new Date(new Date(startTime).getTime() - mins * 60 * 1000);
+      const remindTime = reminderAt
+        ? new Date(reminderAt)
+        : new Date(new Date(startTime).getTime() - (engineerReminderMinutes || defaultMinutes) * 60 * 1000);
       await db.query(
         `INSERT INTO job_reminders (company_id, job_id, remind_at, remind_type, recipient_type)
          VALUES ($1, $2, $3, 'email', 'engineer')`,
-        [companyId, jobId, remindAt]
+        [companyId, jobId, remindTime]
       );
     }
   }
@@ -152,6 +154,7 @@ router.post("/jobs", async (req, res, next) => {
     const engineerReminder = b.engineerReminder ?? b.engineer_reminder;
     const customerReminderMinutes = b.customerReminderMinutes || b.customer_reminder_minutes;
     const engineerReminderMinutes = b.engineerReminderMinutes || b.engineer_reminder_minutes;
+    const reminderAt = b.reminderAt || b.reminder_at;
 
     if (!title || !startTime) {
       return res.status(400).json({ error: "Title and startTime are required" });
@@ -184,7 +187,7 @@ router.post("/jobs", async (req, res, next) => {
     const parentJob = result.rows[0];
 
     await syncJobReminders(companyId, parentJob.id, startTime, {
-      customerReminder, engineerReminder, customerReminderMinutes, engineerReminderMinutes,
+      customerReminder, engineerReminder, customerReminderMinutes, engineerReminderMinutes, reminderAt,
     });
 
     if (recurrence && recurrence !== "none") {
@@ -239,7 +242,9 @@ router.get("/jobs", async (req, res, next) => {
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer') AS customer_reminder_set,
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' AND r.is_sent=true) AS customer_reminder_sent,
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer') AS engineer_reminder_set,
-        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent,
+        (SELECT r.remind_at FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' ORDER BY r.id DESC LIMIT 1) AS customer_reminder_at,
+        (SELECT r.remind_at FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' ORDER BY r.id DESC LIMIT 1) AS engineer_reminder_at
        FROM jobs j
        LEFT JOIN customers c ON c.id = j.customer_id
        LEFT JOIN engineers e ON e.id = j.engineer_id
@@ -264,7 +269,9 @@ router.get("/jobs/today", async (req, res, next) => {
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer') AS customer_reminder_set,
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' AND r.is_sent=true) AS customer_reminder_sent,
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer') AS engineer_reminder_set,
-        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent,
+        (SELECT r.remind_at FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' ORDER BY r.id DESC LIMIT 1) AS customer_reminder_at,
+        (SELECT r.remind_at FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' ORDER BY r.id DESC LIMIT 1) AS engineer_reminder_at
        FROM jobs j
        LEFT JOIN customers c ON c.id = j.customer_id
        LEFT JOIN engineers e ON e.id = j.engineer_id
@@ -289,7 +296,9 @@ router.get("/jobs/upcoming", async (req, res, next) => {
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer') AS customer_reminder_set,
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' AND r.is_sent=true) AS customer_reminder_sent,
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer') AS engineer_reminder_set,
-        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent,
+        (SELECT r.remind_at FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' ORDER BY r.id DESC LIMIT 1) AS customer_reminder_at,
+        (SELECT r.remind_at FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' ORDER BY r.id DESC LIMIT 1) AS engineer_reminder_at
        FROM jobs j
        LEFT JOIN customers c ON c.id = j.customer_id
        LEFT JOIN engineers e ON e.id = j.engineer_id
@@ -318,7 +327,9 @@ router.get("/jobs/:id", async (req, res, next) => {
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer') AS customer_reminder_set,
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' AND r.is_sent=true) AS customer_reminder_sent,
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer') AS engineer_reminder_set,
-        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent,
+        (SELECT r.remind_at FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' ORDER BY r.id DESC LIMIT 1) AS customer_reminder_at,
+        (SELECT r.remind_at FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' ORDER BY r.id DESC LIMIT 1) AS engineer_reminder_at
        FROM jobs j
        LEFT JOIN customers c ON c.id = j.customer_id
        LEFT JOIN engineers e ON e.id = j.engineer_id
@@ -358,6 +369,7 @@ router.put("/jobs/:id", async (req, res, next) => {
     const engineerReminder = b.engineerReminder ?? b.engineer_reminder;
     const customerReminderMinutes = b.customerReminderMinutes || b.customer_reminder_minutes;
     const engineerReminderMinutes = b.engineerReminderMinutes || b.engineer_reminder_minutes;
+    const reminderAt = b.reminderAt || b.reminder_at;
 
     // Get old status before updating
     const oldJob = await db.query(
@@ -468,7 +480,9 @@ router.get("/dispatch/live-board", async (req, res, next) => {
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer') AS customer_reminder_set,
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' AND r.is_sent=true) AS customer_reminder_sent,
         EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer') AS engineer_reminder_set,
-        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent,
+        (SELECT r.remind_at FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' ORDER BY r.id DESC LIMIT 1) AS customer_reminder_at,
+        (SELECT r.remind_at FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' ORDER BY r.id DESC LIMIT 1) AS engineer_reminder_at
        FROM jobs j
        LEFT JOIN customers c ON c.id = j.customer_id
        LEFT JOIN engineers e ON e.id = j.engineer_id
