@@ -345,6 +345,36 @@ router.get("/jobs/:id", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// GET /jobs/:id/series - Get all recurring instances for a parent job
+router.get("/jobs/:id/series", async (req, res, next) => {
+  try {
+    const companyId = req.user.companyId;
+    const id = Number(req.params.id);
+
+    const result = await db.query(
+      `SELECT
+        j.*,
+        c.name AS customer_name,
+        e.name AS engineer_name,
+        e.colour AS engineer_colour,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer') AS customer_reminder_set,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' AND r.is_sent=true) AS customer_reminder_sent,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer') AS engineer_reminder_set,
+        EXISTS(SELECT 1 FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' AND r.is_sent=true) AS engineer_reminder_sent,
+        (SELECT r.remind_at FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='customer' ORDER BY r.id DESC LIMIT 1) AS customer_reminder_at,
+        (SELECT r.remind_at FROM job_reminders r WHERE r.job_id=j.id AND r.recipient_type='engineer' ORDER BY r.id DESC LIMIT 1) AS engineer_reminder_at
+       FROM jobs j
+       LEFT JOIN customers c ON c.id = j.customer_id
+       LEFT JOIN engineers e ON e.id = j.engineer_id
+       WHERE j.company_id=$2 AND (j.id=$1 OR j.parent_job_id=$1)
+       ORDER BY j.start_time ASC`,
+      [id, companyId]
+    );
+
+    res.json({ jobs: result.rows });
+  } catch (e) { next(e); }
+});
+
 router.put("/jobs/:id", async (req, res, next) => {
   try {
     const isStatusOnlyUpdate = Object.keys(req.body).length === 1 && req.body.status;
