@@ -248,6 +248,8 @@ router.delete("/delete-account", async (req, res, next) => {
 
       // Delete in order respecting foreign keys (children first)
       // Line items and allocations
+      await client.query(`DELETE FROM estimate_lines WHERE estimate_id IN (SELECT id FROM estimates WHERE company_id=$1)`, [companyId]);
+      await client.query(`DELETE FROM estimates WHERE company_id=$1`, [companyId]);
       await client.query(`DELETE FROM invoice_lines WHERE invoice_id IN (SELECT id FROM invoices WHERE company_id=$1)`, [companyId]);
       await client.query(`DELETE FROM bill_lines WHERE bill_id IN (SELECT id FROM bills WHERE company_id=$1)`, [companyId]);
       await client.query(`DELETE FROM payroll_run_lines WHERE payroll_run_id IN (SELECT id FROM payroll_runs WHERE company_id=$1)`, [companyId]);
