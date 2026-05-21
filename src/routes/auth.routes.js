@@ -97,6 +97,8 @@ router.post("/login", async (req, res, next) => {
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
     const companyId = req.body.companyId ? Number(req.body.companyId) : null;
+    const deviceToken = req.body.deviceToken || req.body.device_token || null;
+    const deviceType = req.body.deviceType || req.body.device_type || null;
 
     const result = await db.query(
       `SELECT u.id, u.company_id, u.email, u.name, u.role, u.password_hash,
@@ -117,6 +119,13 @@ router.post("/login", async (req, res, next) => {
     const user = companyId
       ? result.rows.find(r => r.company_id === companyId) || firstUser
       : firstUser;
+
+    if (deviceToken || deviceType) {
+      await db.query(
+        `UPDATE users SET device_token=COALESCE($1, device_token), device_type=COALESCE($2, device_type) WHERE id=$3`,
+        [deviceToken, deviceType, user.id]
+      );
+    }
 
     const token = jwt.sign(
       { userId: user.id, companyId: user.company_id, email: user.email, role: user.role },
