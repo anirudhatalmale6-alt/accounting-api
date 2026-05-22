@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gas Man Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-primary: #0b1120;
+  --bg-secondary: #111827;
+  --bg-card: #1a2332;
+  --bg-card-hover: #1f2b3d;
+  --bg-input: #0f1729;
+  --border: #1e2d42;
+  --border-focus: #3b82f6;
+  --text-primary: #e2e8f0;
+  --text-secondary: #8b9dc3;
+  --text-muted: #4a5f82;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-glow: rgba(59, 130, 246, 0.15);
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --orange: #f97316;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --font: 'DM Sans', -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+html { font-size: 15px; }
+body {
+  font-family: var(--font);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* === LOGIN === */
+#login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(59,130,246,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(59,130,246,0.05) 0%, transparent 50%),
+    var(--bg-primary);
+}
+
+.login-box {
+  width: 100%;
+  max-width: 380px;
+  padding: 2.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.login-box h1 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.3rem;
+}
+
+.login-box .subtitle {
+  color: var(--text-secondary);
+  font-size: 0.87rem;
+  margin-bottom: 2rem;
+}
+
+.form-group { margin-bottom: 1rem; }
+
+.form-group label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+input[type="email"], input[type="password"], input[type="text"] {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 0.93rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.65rem 1.2rem;
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 0.87rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid rgba(239,68,68,0.3);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+}
+.btn-danger:hover { background: rgba(239,68,68,0.1); border-color: var(--danger); }
+
+.btn-outline {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid rgba(59,130,246,0.3);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+}
+.btn-outline:hover { background: var(--accent-glow); border-color: var(--accent); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+}
+.btn-ghost:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+
+.login-error {
+  color: var(--danger);
+  font-size: 0.83rem;
+  margin-top: 0.8rem;
+  display: none;
+}
+
+/* === APP LAYOUT === */
+#app-screen { display: none; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  height: 56px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.topbar-logo {
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.topbar-logo span { color: var(--accent); }
+
+.topbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+}
+
+.topbar-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: var(--accent-glow);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.topbar-user {
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+}
+
+.topbar-user strong { color: var(--text-primary); font-weight: 500; }
+
+/* Nav tabs */
+.nav-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 2rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-tab {
+  padding: 0.75rem 1.2rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.nav-tab:hover { color: var(--text-secondary); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Content */
+.content { padding: 1.5rem 2rem 3rem; max-width: 1200px; }
+
+/* Stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.2rem 1.4rem;
+  transition: border-color 0.2s;
+}
+
+.stat-card:hover { border-color: rgba(59,130,246,0.3); }
+
+.stat-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  font-family: var(--mono);
+  letter-spacing: -0.03em;
+}
+
+.stat-value.blue { color: var(--accent); }
+.stat-value.green { color: var(--success); }
+.stat-value.orange { color: var(--orange); }
+.stat-value.warning { color: var(--warning); }
+
+/* Tables */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.table-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead th {
+  text-align: left;
+  padding: 0.7rem 1rem;
+  font-size: 0.73rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: rgba(0,0,0,0.15);
+  border-bottom: 1px solid var(--border);
+}
+
+tbody td {
+  padding: 0.7rem 1rem;
+  font-size: 0.87rem;
+  border-bottom: 1px solid rgba(30,45,66,0.5);
+  color: var(--text-secondary);
+}
+
+tbody tr { transition: background 0.1s; }
+tbody tr:hover { background: var(--bg-card-hover); }
+tbody tr:last-child td { border-bottom: none; }
+
+td .email {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--text-primary);
+}
+
+td .role-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.role-owner { background: rgba(59,130,246,0.15); color: var(--accent); }
+.role-admin { background: rgba(139,92,246,0.15); color: #a78bfa; }
+.role-engineer { background: rgba(34,197,94,0.15); color: var(--success); }
+.role-accountant { background: rgba(249,115,22,0.15); color: var(--orange); }
+
+td .mono {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+td .date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.actions-cell {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* Tab pages */
+.tab-page { display: none; }
+.tab-page.active { display: block; }
+
+/* Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 90%;
+  max-width: 700px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 2rem;
+  position: relative;
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  line-height: 1;
+}
+.modal-close:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+
+.modal h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.modal .modal-subtitle {
+  color: var(--text-muted);
+  font-size: 0.83rem;
+  margin-bottom: 1.5rem;
+  font-family: var(--mono);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.detail-item label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.detail-item .val {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.detail-item .val.mono {
+  font-family: var(--mono);
+  font-size: 0.83rem;
+}
+
+.detail-section-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 1.5rem 0 0.7rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+}
+
+.mini-table th {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.mini-table td {
+  padding: 0.4rem 0.6rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(30,45,66,0.3);
+}
+
+/* Confirm dialog */
+.confirm-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  z-index: 600;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-overlay.open { display: flex; }
+
+.confirm-box {
+  background: var(--bg-card);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  max-width: 400px;
+  text-align: center;
+}
+
+.confirm-box h3 {
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
+}
+
+.confirm-box p {
+  color: var(--text-secondary);
+  font-size: 0.87rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.confirm-box .confirm-actions {
+  display: flex;
+  gap: 0.7rem;
+  justify-content: center;
+}
+
+.confirm-box .btn-cancel {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  padding: 0.55rem 1.2rem;
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 0.87rem;
+  cursor: pointer;
+}
+.confirm-box .btn-cancel:hover { background: rgba(255,255,255,0.05); }
+
+.confirm-box .btn-delete {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  padding: 0.55rem 1.2rem;
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 0.87rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.confirm-box .btn-delete:hover { background: var(--danger-hover); }
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+}
+
+.checkbox-row input { accent-color: var(--danger); }
+
+/* Loading */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-state {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-muted);
+  font-size: 0.87rem;
+}
+
+/* Empty */
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-muted);
+  font-size: 0.87rem;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  padding: 0.7rem 1.2rem;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  font-weight: 500;
+  z-index: 700;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s;
+}
+
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { background: var(--success); color: #fff; }
+.toast.error { background: var(--danger); color: #fff; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .content { padding: 1rem; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .topbar { padding: 0 1rem; }
+  .nav-tabs { padding: 0 1rem; overflow-x: auto; }
+  .modal { padding: 1.5rem; width: 95%; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>Gas Man Admin</h1>
+    <p class="subtitle">Backend management panel</p>
+    <form id="login-form">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" required placeholder="admin@gasman.co.uk">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" required placeholder="Enter password">
+      </div>
+      <button type="submit" class="btn btn-primary" id="login-btn">Sign In</button>
+      <p class="login-error" id="login-error"></p>
+    </form>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-logo">Gas<span>Man</span></span>
+      <span class="topbar-divider"></span>
+      <span class="topbar-badge">Admin</span>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-user">Signed in as <strong id="admin-email"></strong></span>
+      <button class="btn btn-ghost" onclick="logout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="nav-tabs">
+    <div class="nav-tab active" data-tab="dashboard">Dashboard</div>
+    <div class="nav-tab" data-tab="users">Users</div>
+    <div class="nav-tab" data-tab="companies">Companies</div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="content tab-page active" id="page-dashboard">
+    <div class="stats-grid" id="stats-grid"></div>
+    <div class="section-header">
+      <span class="section-title">Recent Registrations</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Email</th>
+            <th>Company</th>
+            <th>Registered</th>
+          </tr>
+        </thead>
+        <tbody id="recent-users-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Users -->
+  <div class="content tab-page" id="page-users">
+    <div class="section-header">
+      <span class="section-title">All Users</span>
+      <span id="user-count" style="font-size:0.83rem;color:var(--text-muted)"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Company</th>
+            <th>Invoices</th>
+            <th>Customers</th>
+            <th>Registered</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="users-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Companies -->
+  <div class="content tab-page" id="page-companies">
+    <div class="section-header">
+      <span class="section-title">All Companies</span>
+      <span id="company-count" style="font-size:0.83rem;color:var(--text-muted)"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Business Name</th>
+            <th>Users</th>
+            <th>Jobs</th>
+            <th>Invoices</th>
+            <th>Customers</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody id="companies-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- User Detail Modal -->
+<div class="modal-overlay" id="user-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <h2 id="modal-user-name">User Details</h2>
+    <p class="modal-subtitle" id="modal-user-email"></p>
+    <div class="detail-grid" id="modal-detail-grid"></div>
+    <div id="modal-sections"></div>
+  </div>
+</div>
+
+<!-- Confirm Delete -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <h3>Delete User</h3>
+    <p id="confirm-text">Are you sure you want to delete this user?</p>
+    <div class="checkbox-row">
+      <input type="checkbox" id="delete-company-check">
+      <label for="delete-company-check">Also delete their company and all data</label>
+    </div>
+    <div class="confirm-actions">
+      <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="btn-delete" id="confirm-delete-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API_BASE = window.location.origin;
+let TOKEN = localStorage.getItem('admin_token') || '';
+let ADMIN_EMAIL = localStorage.getItem('admin_email') || '';
+let pendingDeleteUserId = null;
+
+// API helper
+async function api(path, opts = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${TOKEN}`,
+      ...(opts.headers || {}),
+    },
+  });
+  if (res.status === 401 || res.status === 403) {
+    if (path !== '/auth/login') { logout(); return null; }
+  }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+// Toast
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast ${type} show`;
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// Format date
+function fmtDate(d) {
+  if (!d) return '-';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function fmtMoney(n) {
+  return '£' + Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function roleClass(role) {
+  return `role-badge role-${role || 'owner'}`;
+}
+
+// LOGIN
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+
+  btn.innerHTML = '<span class="spinner"></span>';
+  errEl.style.display = 'none';
+
+  try {
+    const data = await api('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    TOKEN = data.token;
+    ADMIN_EMAIL = email;
+    localStorage.setItem('admin_token', TOKEN);
+    localStorage.setItem('admin_email', ADMIN_EMAIL);
+    showApp();
+  } catch (err) {
+    errEl.textContent = err.message || 'Login failed';
+    errEl.style.display = 'block';
+    btn.textContent = 'Sign In';
+  }
+});
+
+function logout() {
+  TOKEN = '';
+  ADMIN_EMAIL = '';
+  localStorage.removeItem('admin_token');
+  localStorage.removeItem('admin_email');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display = 'none';
+}
+
+// SHOW APP
+async function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  document.getElementById('admin-email').textContent = ADMIN_EMAIL;
+  loadDashboard();
+}
+
+// TABS
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(`page-${tab.dataset.tab}`).classList.add('active');
+    if (tab.dataset.tab === 'dashboard') loadDashboard();
+    if (tab.dataset.tab === 'users') loadUsers();
+    if (tab.dataset.tab === 'companies') loadCompanies();
+  });
+});
+
+// DASHBOARD
+async function loadDashboard() {
+  try {
+    const data = await api('/admin/stats');
+    if (!data) return;
+
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value blue">${data.totalUsers}</div></div>
+      <div class="stat-card"><div class="stat-label">Companies</div><div class="stat-value green">${data.totalCompanies}</div></div>
+      <div class="stat-card"><div class="stat-label">Invoices</div><div class="stat-value orange">${data.totalInvoices}</div></div>
+      <div class="stat-card"><div class="stat-label">Invoice Value</div><div class="stat-value warning">${fmtMoney(data.totalInvoiceValue)}</div></div>
+      <div class="stat-card"><div class="stat-label">Bills</div><div class="stat-value orange">${data.totalBills}</div></div>
+      <div class="stat-card"><div class="stat-label">Bills Value</div><div class="stat-value warning">${fmtMoney(data.totalBillValue)}</div></div>
+    `;
+
+    const tbody = document.getElementById('recent-users-body');
+    if (!data.recentUsers || data.recentUsers.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No users yet</td></tr>';
+    } else {
+      tbody.innerHTML = data.recentUsers.map(u => `
+        <tr>
+          <td class="mono">${u.id}</td>
+          <td><span class="email">${u.email}</span></td>
+          <td>${u.company_name || '-'}</td>
+          <td><span class="date">${fmtDate(u.created_at)}</span></td>
+        </tr>
+      `).join('');
+    }
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// USERS
+async function loadUsers() {
+  const tbody = document.getElementById('users-body');
+  tbody.innerHTML = '<tr><td colspan="8" class="loading-state"><span class="spinner"></span> Loading...</td></tr>';
+
+  try {
+    const data = await api('/admin/users');
+    if (!data) return;
+
+    document.getElementById('user-count').textContent = `${data.totalUsers} total`;
+
+    if (!data.users || data.users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No users found</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.users.map(u => `
+      <tr>
+        <td class="mono">${u.id}</td>
+        <td><span class="email">${u.email}</span></td>
+        <td><span class="${roleClass(u.role)}">${u.role}</span></td>
+        <td>${u.company_name || `#${u.company_id}`}</td>
+        <td class="mono">${u.invoice_count || 0}</td>
+        <td class="mono">${u.customer_count || 0}</td>
+        <td><span class="date">${fmtDate(u.created_at)}</span></td>
+        <td>
+          <div class="actions-cell">
+            <button class="btn btn-outline" onclick="viewUser(${u.id})">View</button>
+            <button class="btn btn-danger" onclick="confirmDelete(${u.id}, '${u.email.replace(/'/g, "\\'")}')">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${err.message}</td></tr>`;
+  }
+}
+
+// VIEW USER
+async function viewUser(userId) {
+  const modal = document.getElementById('user-modal');
+  modal.classList.add('open');
+
+  document.getElementById('modal-user-name').textContent = 'Loading...';
+  document.getElementById('modal-user-email').textContent = '';
+  document.getElementById('modal-detail-grid').innerHTML = '';
+  document.getElementById('modal-sections').innerHTML = '<div class="loading-state"><span class="spinner"></span> Loading details...</div>';
+
+  try {
+    const data = await api(`/admin/users/${userId}`);
+    if (!data) return;
+
+    const u = data.user;
+    document.getElementById('modal-user-name').textContent = u.company_name || `Company #${u.company_id}`;
+    document.getElementById('modal-user-email').textContent = u.email;
+
+    document.getElementById('modal-detail-grid').innerHTML = `
+      <div class="detail-item"><label>User ID</label><div class="val mono">${u.id}</div></div>
+      <div class="detail-item"><label>Role</label><div class="val"><span class="${roleClass(u.role)}">${u.role}</span></div></div>
+      <div class="detail-item"><label>Company ID</label><div class="val mono">${u.company_id}</div></div>
+      <div class="detail-item"><label>Registered</label><div class="val">${fmtDate(u.created_at)}</div></div>
+    `;
+
+    let sections = '';
+
+    if (data.invoices && data.invoices.length > 0) {
+      sections += `<div class="detail-section-title">Invoices (${data.invoices.length})</div>
+        <table class="mini-table"><thead><tr><th>#</th><th>Date</th><th>Total</th><th>Status</th></tr></thead><tbody>
+        ${data.invoices.map(i => `<tr><td>${i.invoice_number}</td><td>${fmtDate(i.invoice_date)}</td><td>${fmtMoney(i.total)}</td><td>${i.status}</td></tr>`).join('')}
+        </tbody></table>`;
+    }
+
+    if (data.bills && data.bills.length > 0) {
+      sections += `<div class="detail-section-title">Bills (${data.bills.length})</div>
+        <table class="mini-table"><thead><tr><th>#</th><th>Date</th><th>Total</th><th>Status</th></tr></thead><tbody>
+        ${data.bills.map(b => `<tr><td>${b.bill_number}</td><td>${fmtDate(b.bill_date)}</td><td>${fmtMoney(b.total)}</td><td>${b.status}</td></tr>`).join('')}
+        </tbody></table>`;
+    }
+
+    if (data.customers && data.customers.length > 0) {
+      sections += `<div class="detail-section-title">Customers (${data.customers.length})</div>
+        <table class="mini-table"><thead><tr><th>Name</th><th>Email</th></tr></thead><tbody>
+        ${data.customers.map(c => `<tr><td>${c.name || '-'}</td><td>${c.email || '-'}</td></tr>`).join('')}
+        </tbody></table>`;
+    }
+
+    if (data.suppliers && data.suppliers.length > 0) {
+      sections += `<div class="detail-section-title">Suppliers (${data.suppliers.length})</div>
+        <table class="mini-table"><thead><tr><th>Name</th><th>Email</th></tr></thead><tbody>
+        ${data.suppliers.map(s => `<tr><td>${s.name || '-'}</td><td>${s.email || '-'}</td></tr>`).join('')}
+        </tbody></table>`;
+    }
+
+    if (data.products && data.products.length > 0) {
+      sections += `<div class="detail-section-title">Products (${data.products.length})</div>
+        <table class="mini-table"><thead><tr><th>Name</th><th>SKU</th><th>Stock</th><th>Cost</th><th>Price</th></tr></thead><tbody>
+        ${data.products.map(p => `<tr><td>${p.name}</td><td>${p.sku || '-'}</td><td>${p.stock_qty}</td><td>${fmtMoney(p.cost)}</td><td>${fmtMoney(p.sell_price)}</td></tr>`).join('')}
+        </tbody></table>`;
+    }
+
+    if (data.bankAccounts && data.bankAccounts.length > 0) {
+      sections += `<div class="detail-section-title">Bank Accounts (${data.bankAccounts.length})</div>
+        <table class="mini-table"><thead><tr><th>Account</th><th>Bank</th><th>Balance</th></tr></thead><tbody>
+        ${data.bankAccounts.map(b => `<tr><td>${b.account_name}</td><td>${b.bank_name || '-'}</td><td>${fmtMoney(b.current_balance)}</td></tr>`).join('')}
+        </tbody></table>`;
+    }
+
+    if (!sections) sections = '<p style="color:var(--text-muted);font-size:0.87rem;margin-top:1rem;">No data for this account yet.</p>';
+
+    document.getElementById('modal-sections').innerHTML = sections;
+  } catch (err) {
+    document.getElementById('modal-sections').innerHTML = `<p style="color:var(--danger)">${err.message}</p>`;
+  }
+}
+
+function closeModal() {
+  document.getElementById('user-modal').classList.remove('open');
+}
+
+// DELETE
+function confirmDelete(userId, email) {
+  pendingDeleteUserId = userId;
+  document.getElementById('confirm-text').textContent = `Delete user ${email}? This cannot be undone.`;
+  document.getElementById('delete-company-check').checked = false;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  pendingDeleteUserId = null;
+}
+
+document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+  if (!pendingDeleteUserId) return;
+  const deleteCompany = document.getElementById('delete-company-check').checked;
+  const btn = document.getElementById('confirm-delete-btn');
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    await api(`/admin/users/${pendingDeleteUserId}?deleteCompany=${deleteCompany}`, { method: 'DELETE' });
+    toast('User deleted successfully');
+    closeConfirm();
+    loadUsers();
+    loadDashboard();
+  } catch (err) {
+    toast(err.message, 'error');
+    btn.textContent = 'Delete';
+  }
+});
+
+// COMPANIES
+async function loadCompanies() {
+  const tbody = document.getElementById('companies-body');
+  tbody.innerHTML = '<tr><td colspan="8" class="loading-state"><span class="spinner"></span> Loading...</td></tr>';
+
+  try {
+    const data = await api('/admin/companies');
+    if (!data) return;
+
+    document.getElementById('company-count').textContent = `${data.companies.length} total`;
+
+    if (!data.companies || data.companies.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No companies found</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.companies.map(c => `
+      <tr>
+        <td class="mono">${c.id}</td>
+        <td>${c.name || '-'}</td>
+        <td>${c.business_name || '-'}</td>
+        <td class="mono">${c.user_count || 0}</td>
+        <td class="mono">${c.job_count || 0}</td>
+        <td class="mono">${c.invoice_count || 0}</td>
+        <td class="mono">${c.customer_count || 0}</td>
+        <td><span class="date">${fmtDate(c.created_at)}</span></td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${err.message}</td></tr>`;
+  }
+}
+
+// Close modals on overlay click
+document.getElementById('user-modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
+document.getElementById('confirm-overlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeConfirm();
+});
+
+// Keyboard
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeModal(); closeConfirm(); }
+});
+
+// Auto-login if token exists
+if (TOKEN) {
+  showApp();
+}
+</script>
+</body>
+</html>

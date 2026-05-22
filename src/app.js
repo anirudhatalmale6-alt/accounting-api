@@ -46,6 +46,8 @@ app.use(morgan("dev"));
 app.use("/auth", authRoutes);
 app.get("/health", (_, res) => res.json({ ok: true }));
 app.use("/uploads", express.static("uploads"));
+const path = require("path");
+app.use("/admin-panel", express.static(path.join(__dirname, "../public")));
 
 // HMRC OAuth callback - must be public (browser redirect from HMRC, no JWT)
 app.get("/hmrc/callback", async (req, res) => {
