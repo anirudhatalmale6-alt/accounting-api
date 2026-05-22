@@ -307,7 +307,8 @@ input:focus {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   margin-bottom: 2rem;
 }
 
@@ -618,14 +619,66 @@ td .date {
 .toast.success { background: var(--success); color: #fff; }
 .toast.error { background: var(--danger); color: #fff; }
 
+table { min-width: 700px; }
+
+/* User card list for mobile */
+.user-cards { display: none; }
+
+.user-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.2rem;
+  margin-bottom: 0.7rem;
+  transition: border-color 0.15s;
+}
+
+.user-card:active { border-color: var(--accent); }
+
+.user-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.user-card-email {
+  font-family: var(--mono);
+  font-size: 0.83rem;
+  color: var(--text-primary);
+}
+
+.user-card-id {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.user-card-mid {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  margin-bottom: 0.7rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.user-card-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .content { padding: 1rem; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .detail-grid { grid-template-columns: 1fr; }
-  .topbar { padding: 0 1rem; }
-  .nav-tabs { padding: 0 1rem; overflow-x: auto; }
+  .topbar { padding: 0 0.8rem; }
+  .topbar-user { display: none; }
+  .nav-tabs { padding: 0 0.8rem; overflow-x: auto; }
   .modal { padding: 1.5rem; width: 95%; }
+  #users-table-wrap { display: none; }
+  .user-cards { display: block; }
 }
 </style>
 </head>
@@ -698,7 +751,7 @@ td .date {
       <span class="section-title">All Users</span>
       <span id="user-count" style="font-size:0.83rem;color:var(--text-muted)"></span>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" id="users-table-wrap">
       <table>
         <thead>
           <tr>
@@ -715,6 +768,7 @@ td .date {
         <tbody id="users-body"></tbody>
       </table>
     </div>
+    <div class="user-cards" id="users-cards"></div>
   </div>
 
   <!-- Companies -->
@@ -943,6 +997,26 @@ async function loadUsers() {
           </div>
         </td>
       </tr>
+    `).join('');
+
+    // Mobile cards
+    const cards = document.getElementById('users-cards');
+    cards.innerHTML = data.users.map(u => `
+      <div class="user-card">
+        <div class="user-card-top">
+          <span class="user-card-email">${u.email}</span>
+          <span class="user-card-id">#${u.id}</span>
+        </div>
+        <div class="user-card-mid">
+          <span class="${roleClass(u.role)}">${u.role}</span>
+          <span>${u.company_name || `Company #${u.company_id}`}</span>
+          <span>${fmtDate(u.created_at)}</span>
+        </div>
+        <div class="user-card-actions">
+          <button class="btn btn-outline" onclick="viewUser(${u.id})">View</button>
+          <button class="btn btn-danger" onclick="confirmDelete(${u.id}, '${u.email.replace(/'/g, "\\'")}')">Delete</button>
+        </div>
+      </div>
     `).join('');
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${err.message}</td></tr>`;
