@@ -74,7 +74,7 @@ router.get("/users/:id", async (req, res, next) => {
     );
 
     const products = await db.query(
-      `SELECT id, name, sku, stock_qty, cost, sell_price FROM products WHERE company_id=$1 ORDER BY name`,
+      `SELECT id, name, sku, stock_qty, cost, price FROM products WHERE company_id=$1 ORDER BY name`,
       [companyId]
     );
 
